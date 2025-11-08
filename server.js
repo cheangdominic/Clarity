@@ -74,7 +74,8 @@ If it's too short or just a definition, respond NO.\n\nText: ${text}`,
             {
               role: "system",
               content:
-                "You are a helpful assistant. Summarize the text concisely, focusing on the key ideas only. Do not give definitions.",
+                "You are a helpful assistant. Summarize the text concisely, focusing on the key ideas only." +
+                "The length of the text should be much less than the length of the selected text. Briefly convey the idea leaving only important ideas.",
             },
             { role: "user", content: text },
           ],
@@ -128,7 +129,7 @@ app.post("/notes", async (req, res) => {
               role: "user",
               content: `Determine if the following text is long enough and meaningful enough to create study notes. 
               Do not create any notes yet. Only respond with YES or NO. 
-              If it's too short, a single definition, or lacks enough information to form notes, respond NO.\n\nText: ${text}`
+              If it's too short, a single definition, or lacks enough information to form notes, respond NO.\n\nText: ${text}`,
             },
           ],
           max_completion_tokens: 20,
@@ -168,7 +169,7 @@ app.post("/notes", async (req, res) => {
               - Avoid filler words, redundant text, and examples unless needed for understanding.
               - Format output for readability, not decoration.
               - If it is a title of a subsection then do not have a bullet point
-              - Note sections should have a title followed by points. Seperate sections with a new line in between the last section and the new one.`,              
+              - Note sections should have a title followed by points. Seperate sections with a new line in between the last section and the new one.`,
             },
             { role: "user", content: text },
           ],
@@ -179,8 +180,7 @@ app.post("/notes", async (req, res) => {
 
     const notesData = await notesResponse.json();
     const notes =
-      notesData?.choices?.[0]?.message?.content?.trim() ||
-      "No notes generated";
+      notesData?.choices?.[0]?.message?.content?.trim() || "No notes generated";
 
     console.log("Generated Notes:", notes);
 
