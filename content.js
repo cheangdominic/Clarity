@@ -76,17 +76,16 @@ function createModal(id, title) {
   modal.querySelector("button").onclick = () => (modal.style.display = "none")
 }
 
-function showModal(id, title, text, toolbar) {
-  createModal(id, title)
-  const modal = document.getElementById(id)
-  modal.querySelector(".modal-content").innerHTML = markdownToHtml(text.trim())
-  const rect = toolbar.getBoundingClientRect()
-  modal.style.top = `${window.scrollY + rect.top - 12}px`
-  modal.style.left = `${window.scrollX + rect.left + rect.width / 2}px`
-  modal.style.transform = "translateX(-50%) translateY(-100%)"
-  modal.style.opacity = "0"
-  modal.style.display = "block"
-  requestAnimationFrame(() => (modal.style.opacity = "1"))
+function showLoadingSpinner(container) {
+  container.innerHTML = `
+    <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100px;color:#666;">
+      <div style="border:4px solid #f3f3f3;border-top:4px solid #333;border-radius:50%;width:28px;height:28px;animation:spin 1s linear infinite;"></div>
+      <div style="margin-top:10px;font-size:13px;">Loading...</div>
+    </div>
+    <style>
+      @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+    </style>
+  `
 }
 
 function showHighlightPopup() {
@@ -135,6 +134,18 @@ function showHighlightPopup() {
   })
 
   popup.querySelector("#summarizeBtn").onclick = async () => {
+    const modalId = "summaryModal"
+    createModal(modalId, "Summary")
+    const modal = document.getElementById(modalId)
+    const content = modal.querySelector(".modal-content")
+    showLoadingSpinner(content)
+    modal.style.display = "block"
+    const rect = popup.getBoundingClientRect()
+    modal.style.top = `${window.scrollY + rect.top - 12}px`
+    modal.style.left = `${window.scrollX + rect.left + rect.width / 2}px`
+    modal.style.transform = "translateX(-50%) translateY(-100%)"
+    modal.style.opacity = "0"
+    requestAnimationFrame(() => (modal.style.opacity = "1"))
     try {
       const res = await fetch("http://localhost:5000/summarize", {
         method: "POST",
@@ -142,13 +153,25 @@ function showHighlightPopup() {
         body: JSON.stringify({ text: selectedText }),
       })
       const data = await res.json()
-      showModal("summaryModal", "Summary", data.summary || "No summary", popup)
+      content.innerHTML = markdownToHtml(data.summary || "No summary available.")
     } catch {
-      showModal("summaryModal", "Summary", "Failed to fetch summary", popup)
+      content.innerHTML = `<p style="color:#a00;">Failed to fetch summary.</p>`
     }
   }
 
   popup.querySelector("#notesBtn").onclick = async () => {
+    const modalId = "notesModal"
+    createModal(modalId, "Notes")
+    const modal = document.getElementById(modalId)
+    const content = modal.querySelector(".modal-content")
+    showLoadingSpinner(content)
+    modal.style.display = "block"
+    const rect = popup.getBoundingClientRect()
+    modal.style.top = `${window.scrollY + rect.top - 12}px`
+    modal.style.left = `${window.scrollX + rect.left + rect.width / 2}px`
+    modal.style.transform = "translateX(-50%) translateY(-100%)"
+    modal.style.opacity = "0"
+    requestAnimationFrame(() => (modal.style.opacity = "1"))
     try {
       const res = await fetch("http://localhost:5000/notes", {
         method: "POST",
@@ -156,14 +179,13 @@ function showHighlightPopup() {
         body: JSON.stringify({ text: selectedText }),
       })
       const data = await res.json()
-      showModal("notesModal", "Notes", data.notes || "No notes", popup)
+      content.innerHTML = markdownToHtml(data.notes || "No notes available.")
     } catch {
-      showModal("notesModal", "Notes", "Failed to fetch notes", popup)
+      content.innerHTML = `<p style="color:#a00;">Failed to fetch notes.</p>`
     }
   }
 
-  popup.querySelector("#translateBtn").onclick = () =>
-    alert("Translate: " + selectedText)
+  popup.querySelector("#translateBtn").onclick = () => alert("Translate: " + selectedText)
 
   popup.querySelector("#viewHistoryBtn").onclick = (e) => {
     e.stopPropagation()
@@ -240,12 +262,8 @@ function showClipboardHistory(popup) {
           position: "relative",
         })
         div.innerHTML = `
-          <div style="font-size:10px;color:#666;margin-bottom:4px;">${escapeHtml(
-            item.date || ""
-          )}</div>
-          <div style="font-size:13px;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${escapeHtml(
-            item.text || ""
-          )}</div>`
+          <div style="font-size:10px;color:#666;margin-bottom:4px;">${escapeHtml(item.date || "")}</div>
+          <div style="font-size:13px;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${escapeHtml(item.text || "")}</div>`
         div.onclick = (e) => {
           e.stopPropagation()
           navigator.clipboard.writeText(item.text)
