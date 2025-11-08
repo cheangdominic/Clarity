@@ -185,7 +185,6 @@ function showHighlightPopup() {
     }
   });
 
-
   popup.querySelector("#translateBtn").addEventListener("click", () => {
     alert("Translate: " + selectedText);
   });
@@ -199,7 +198,10 @@ function showHighlightPopup() {
   setTimeout(() => {
     documentClickListener = (e) => {
       const historyCard = document.getElementById("clipboardHistoryCard");
-      if (!popup.contains(e.target) && (!historyCard || !historyCard.contains(e.target))) {
+      if (
+        !popup.contains(e.target) &&
+        (!historyCard || !historyCard.contains(e.target))
+      ) {
         popup.remove();
         if (historyCard) historyCard.remove();
         document.removeEventListener("click", documentClickListener);
@@ -220,14 +222,16 @@ function showClipboardHistory(popup) {
     const card = document.createElement("div");
     card.id = "clipboardHistoryCard";
     card.style.position = "absolute";
-    
+
     const popupRect = popup.getBoundingClientRect();
     card.style.top = `${window.scrollY + popupRect.top - 10}px`;
-    card.style.left = `${window.scrollX + popupRect.left + popupRect.width / 2}px`;
+    card.style.left = `${
+      window.scrollX + popupRect.left + popupRect.width / 2
+    }px`;
     card.style.transform = "translateX(-50%) translateY(-100%)";
-    
-    card.style.background = "white";
-    card.style.color = "#333";
+
+    card.style.background = "black";
+    card.style.color = "white";
     card.style.padding = "12px";
     card.style.borderRadius = "8px";
     card.style.boxShadow = "0 4px 12px rgba(0,0,0,0.15)";
@@ -259,8 +263,8 @@ function showClipboardHistory(popup) {
       list.style.display = "flex";
       list.style.flexDirection = "column";
       list.style.gap = "8px";
+      list.style.color = "black";
 
-      
       history.slice(0, 10).forEach((item, index) => {
         const itemDiv = document.createElement("div");
         /*
@@ -278,7 +282,7 @@ function showClipboardHistory(popup) {
           cursor: "pointer",
           transition: "background 0.2s",
           position: "relative",
-          border: "1px solid #eee", 
+          border: "1px solid #eee",
         });
         itemDiv.innerHTML = `
           <div style="font-size:10px;color:#666;margin-bottom:4px;">${item.date}</div>
@@ -291,7 +295,7 @@ function showClipboardHistory(popup) {
           e.stopPropagation();
           navigator.clipboard.writeText(item.text);
           itemDiv.style.background = "#c8e6c9";
-          
+
           const feedback = document.createElement("div");
           feedback.textContent = "✓ Copied";
           feedback.style.position = "absolute";
@@ -305,7 +309,7 @@ function showClipboardHistory(popup) {
           feedback.style.fontSize = "12px";
           feedback.style.fontWeight = "bold";
           itemDiv.appendChild(feedback);
-          
+
           setTimeout(() => {
             itemDiv.style.background = "#f5f5f5";
             feedback.remove();
