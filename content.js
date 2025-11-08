@@ -1,6 +1,7 @@
-let popupTimeout
-let documentClickListener = null
-let lastClipboardText = ""
+let popupTimeout;
+let documentClickListener = null;
+let lastClipboardText = "";
+let lastCreatedHighlight = null; 
 
 setInterval(async () => {
   try {
@@ -228,6 +229,16 @@ function showHighlightPopup() {
       highlight.appendChild(extracted);
       range.insertNode(highlight);
       selection.removeAllRanges();
+      lastCreatedHighlight = highlight;
+
+      try {
+        popup.remove();
+      } catch (_) {}
+      if (documentClickListener) {
+        document.removeEventListener("click", documentClickListener);
+        documentClickListener = null;
+      }
+      showTagActionsMenu(highlight);
     } catch (err) {
       console.error("Highlight failed, likely spans multiple elements:", err);
       alert(
@@ -239,12 +250,15 @@ function showHighlightPopup() {
   setTimeout(() => {
     documentClickListener = (e) => {
       const historyCard = document.getElementById("clipboardHistoryCard");
+      const highlightsPanel = document.getElementById("highlightsPanel");
       if (
         !popup.contains(e.target) &&
-        (!historyCard || !historyCard.contains(e.target))
+        (!historyCard || !historyCard.contains(e.target)) &&
+        (!highlightsPanel || !highlightsPanel.contains(e.target))
       ) {
         popup.remove();
         if (historyCard) historyCard.remove();
+        if (highlightsPanel) highlightsPanel.remove();
         document.removeEventListener("click", documentClickListener);
         documentClickListener = null;
       }
@@ -360,6 +374,307 @@ function showClipboardHistory(popup) {
     document.body.appendChild(card)
     requestAnimationFrame(() => (card.style.opacity = "1"))
   })
+}
+
+function tagToColor(tag) {
+  let hash = 0;
+  for (let i = 0; i < tag.length; i++) {
+    hash = (hash << 5) - hash + tag.charCodeAt(i);
+    hash |= 0;
+  }
+  const h = Math.abs(hash) % 360;
+  const s = 65; 
+  const l = 75; 
+  return { h, s, l };
+}
+
+function showHighlightsPanel(popup) {
+  const existing = document.getElementById("highlightsPanel");
+  if (existing) existing.remove();
+
+  chrome.storage.local.get(["highlights"], (result) => {
+    const highlights = Array.isArray(result.highlights) ? result.highlights : [];
+
+    const panel = document.createElement("div");
+    panel.id = "highlightsPanel";
+    panel.style.position = "absolute";
+    const popupRect = popup.getBoundingClientRect();
+    panel.style.top = `${window.scrollY + popupRect.top - 10}px`;
+    panel.style.left = `${window.scrollX + popupRect.left + popupRect.width / 2}px`;
+    panel.style.transform = "translateX(-50%) translateY(-100%)";
+    panel.style.background = "white";
+    panel.style.color = "#333";
+    panel.style.padding = "12px";
+    panel.style.borderRadius = "8px";
+    panel.style.boxShadow = "0 4px 12px rgba(0,0,0,0.15)";
+    panel.style.zIndex = "1000000";
+    panel.style.minWidth = "340px";
+    panel.style.maxWidth = "460px";
+    panel.style.maxHeight = "360px";
+    panel.style.overflowY = "auto";
+
+    panel.innerHTML = `
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid #eee;">
+        <strong>Tagged Highlights</strong>
+        <div>
+          <button id="clearHighlightsBtn" style="background:#ff5252;color:white;border:none;padding:4px 8px;border-radius:4px;font-size:11px;cursor:pointer;">Clear</button>
+        </div>
+      </div>
+    `;
+
+    if (highlights.length === 0) {
+      const empty = document.createElement("div");
+      empty.style.color = "#666";
+      empty.style.textAlign = "center";
+      empty.style.padding = "20px";
+      empty.textContent = "No highlights yet. Create a highlight, then Tag it.";
+      panel.appendChild(empty);
+    } else {
+      const groups = highlights.reduce((acc, h) => {
+        const key = (h.tag || "untagged").trim() || "untagged";
+        (acc[key] = acc[key] || []).push(h);
+        return acc;
+      }, {});
+
+      const tags = Object.keys(groups).sort((a, b) => a.localeCompare(b));
+      const container = document.createElement("div");
+      container.style.display = "flex";
+      container.style.flexDirection = "column";
+      container.style.gap = "10px";
+
+      tags.forEach((tag) => {
+        const color = tagToColor(tag);
+        const section = document.createElement("div");
+        section.style.border = "1px solid #eee";
+        section.style.borderRadius = "8px";
+
+        const header = document.createElement("div");
+        header.style.display = "flex";
+        header.style.alignItems = "center";
+        header.style.justifyContent = "space-between";
+        header.style.padding = "8px 10px";
+        header.style.cursor = "pointer";
+        header.style.background = `hsla(${color.h}, ${color.s}%, ${color.l}%, 0.25)`;
+        header.style.borderBottom = "1px solid #eee";
+
+        const left = document.createElement("div");
+        const badge = document.createElement("span");
+        badge.textContent = tag;
+        badge.style.display = "inline-block";
+        badge.style.padding = "2px 8px";
+        badge.style.borderRadius = "999px";
+        badge.style.background = `hsl(${color.h}, ${color.s}%, ${Math.max(35, color.l - 35)}%)`;
+        badge.style.color = "#fff";
+        badge.style.fontSize = "11px";
+        badge.style.marginRight = "8px";
+        const count = document.createElement("span");
+        count.textContent = `(${groups[tag].length})`;
+        count.style.fontSize = "12px";
+        count.style.color = "#444";
+        left.appendChild(badge);
+        left.appendChild(count);
+
+        const toggle = document.createElement("span");
+        toggle.textContent = "▼";
+        toggle.style.fontSize = "12px";
+        toggle.style.color = "#666";
+
+        header.appendChild(left);
+        header.appendChild(toggle);
+
+        const list = document.createElement("div");
+        list.style.display = "block";
+
+        groups[tag].forEach((item) => {
+          const row = document.createElement("div");
+          row.style.display = "grid";
+          row.style.gridTemplateColumns = "1fr auto auto";
+          row.style.gap = "8px";
+          row.style.padding = "8px 10px";
+          row.style.alignItems = "center";
+          row.style.borderTop = "1px solid #f4f4f4";
+
+          const text = document.createElement("div");
+          text.style.fontSize = "13px";
+          text.style.overflow = "hidden";
+          text.style.textOverflow = "ellipsis";
+          text.style.display = "-webkit-box";
+          text.style.webkitLineClamp = "2";
+          text.style.webkitBoxOrient = "vertical";
+          text.textContent = item.text;
+
+          const openBtn = document.createElement("button");
+          openBtn.textContent = "Open";
+          openBtn.style.fontSize = "11px";
+          openBtn.style.border = "1px solid #ddd";
+          openBtn.style.background = "#fff";
+          openBtn.style.borderRadius = "6px";
+          openBtn.style.padding = "4px 8px";
+          openBtn.style.cursor = "pointer";
+          openBtn.addEventListener("click", (e) => {
+            e.stopPropagation();
+            window.open(item.url, "_blank");
+          });
+
+          const copyBtn = document.createElement("button");
+          copyBtn.textContent = "Copy";
+          copyBtn.style.fontSize = "11px";
+          copyBtn.style.border = "1px solid #ddd";
+          copyBtn.style.background = "#fff";
+          copyBtn.style.borderRadius = "6px";
+          copyBtn.style.padding = "4px 8px";
+          copyBtn.style.cursor = "pointer";
+          copyBtn.addEventListener("click", (e) => {
+            e.stopPropagation();
+            navigator.clipboard.writeText(item.text);
+          });
+
+          row.appendChild(text);
+          row.appendChild(openBtn);
+          row.appendChild(copyBtn);
+          list.appendChild(row);
+        });
+
+        header.addEventListener("click", () => {
+          const isHidden = list.style.display === "none";
+          list.style.display = isHidden ? "block" : "none";
+          toggle.textContent = isHidden ? "▼" : "▲";
+        });
+
+        section.appendChild(header);
+        section.appendChild(list);
+        container.appendChild(section);
+      });
+
+      panel.appendChild(container);
+    }
+
+    document.body.appendChild(panel);
+
+    const clearBtn = panel.querySelector("#clearHighlightsBtn");
+    if (clearBtn) {
+      clearBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        if (confirm("Clear all tagged highlights?")) {
+          chrome.storage.local.set({ highlights: [] }, () => {
+            panel.remove();
+            popup.remove();
+          });
+        }
+      });
+    }
+  });
+}
+
+function showTagActionsMenu(anchorEl) {
+  try {
+    const old = document.getElementById("tagActionsMenu");
+    if (old) old.remove();
+  } catch (_) {}
+
+  const rect = anchorEl.getBoundingClientRect();
+  const menu = document.createElement("div");
+  menu.id = "tagActionsMenu";
+  menu.style.position = "absolute";
+  menu.style.top = `${window.scrollY + rect.top - 8}px`;
+  menu.style.left = `${window.scrollX + rect.left + rect.width / 2}px`;
+  menu.style.transform = "translateX(-50%) translateY(-100%)";
+  menu.style.background = "#333";
+  menu.style.color = "#fff";
+  menu.style.padding = "6px 8px";
+  menu.style.borderRadius = "8px";
+  menu.style.boxShadow = "0 2px 6px rgba(0,0,0,0.3)";
+  menu.style.zIndex = "1000001";
+  menu.style.fontSize = "13px";
+  menu.style.display = "flex";
+  menu.style.gap = "8px";
+
+  const mkBtn = (label) => {
+    const btn = document.createElement("button");
+    btn.textContent = label;
+    btn.style.background = "none";
+    btn.style.border = "none";
+    btn.style.color = "white";
+    btn.style.cursor = "pointer";
+    btn.style.padding = "2px 4px";
+    return btn;
+  };
+
+  const createTagBtn = mkBtn("Create Tag");
+  const openTagsBtn = mkBtn("Tags");
+
+  createTagBtn.addEventListener("click", () => {
+    const currentTag = anchorEl.dataset.tag || "";
+    const tag = prompt("Enter a tag for the highlighted text:", currentTag);
+    if (tag === null) return; 
+    const cleanTag = (tag || "untagged").trim();
+
+    const color = tagToColor(cleanTag);
+    anchorEl.style.backgroundColor = `hsla(${color.h}, ${color.s}%, ${color.l}%, 0.35)`;
+    anchorEl.style.borderRadius = "2px";
+    anchorEl.style.padding = "0 2px";
+    anchorEl.style.boxShadow = `inset 0 0 0 1px hsl(${color.h}, ${color.s}%, ${Math.max(0, color.l - 10)}%)`;
+    anchorEl.classList.add("clarity-highlight");
+    anchorEl.dataset.tag = cleanTag;
+    anchorEl.title = `Tag: ${cleanTag}`;
+
+    const item = {
+      tag: cleanTag,
+      text: anchorEl.textContent || "",
+      url: location.href,
+      title: document.title,
+      date: new Date().toISOString(),
+    };
+    chrome.storage.local.get(["highlights"], (result) => {
+      const list = Array.isArray(result.highlights) ? result.highlights : [];
+      list.unshift(item);
+      chrome.storage.local.set({ highlights: list.slice(0, 500) });
+    });
+  });
+
+  openTagsBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    e.preventDefault();
+    showHighlightsPanel(menu);
+  });
+
+  menu.appendChild(createTagBtn);
+  menu.appendChild(openTagsBtn);
+  document.body.appendChild(menu);
+
+  const closer = (e) => {
+    const panel = document.getElementById("highlightsPanel");
+    if (
+      !menu.contains(e.target) &&
+      (!panel || !panel.contains(e.target))
+    ) {
+      try { menu.remove(); } catch (_) {}
+      if (panel) try { panel.remove(); } catch (_) {}
+      document.removeEventListener("click", closer);
+    }
+  };
+  setTimeout(() => document.addEventListener("click", closer), 0);
+}
+
+function getHighlightFromSelection() {
+  const sel = window.getSelection();
+  if (!sel || !sel.rangeCount) return null;
+  const node = sel.getRangeAt(0).startContainer;
+  return findAncestorHighlight(node);
+}
+
+function findAncestorHighlight(node) {
+  let el = node && node.nodeType === 1 ? node : node && node.parentElement;
+  while (el) {
+    if (el.classList && el.classList.contains("clarity-highlight")) return el;
+    el = el.parentElement;
+  }
+  return null;
+}
+
+function getLastHighlightInDocument() {
+  const nodes = document.querySelectorAll(".clarity-highlight");
+  return nodes.length ? nodes[nodes.length - 1] : null;
 }
 
 document.addEventListener("dblclick", () => {
