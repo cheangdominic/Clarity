@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Clipboard History Style Preview</title>
+
+    <style>
+      body {
+        background-color: #f0f0f0;
+        padding: 50px;
+        font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial,
+          sans-serif;
+      }
+
+      /* --- Main Card Styling (Matching Summary Modal Aesthetic) --- */
+      #clipboardHistoryCard {
+        /* Position is static here for preview, but styling is the same */
+        position: relative;
+
+        /* Visuals matching the summary modal */
+        background-color: #333;
+        color: #fff;
+        padding: 12px 16px;
+        border-radius: 10px; /* Updated border radius */
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15); /* Stronger shadow */
+
+        /* Sizing and layout */
+        min-width: 320px;
+        max-width: 340px;
+        max-height: 350px;
+        overflow-y: auto;
+        font-size: 15px;
+
+        /* Clean up default margins */
+        margin: 0;
+      }
+
+      /* --- Header and Utility Styles --- */
+      .history-header {
+        font-weight: 600;
+        margin-bottom: 12px;
+        /* padding-bottom: 8px; */
+        border-bottom: 1px solid #eee;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 16px;
+        color: white;
+        height: 32px;
+      }
+
+      .clip-board {
+        margin-left: 0.5rem;
+      }
+
+      .button-container {
+        display: flex;
+        align-items: center;
+        margin-right: 0.5rem;
+      }
+
+      #clearHistoryBtn {
+        background: #ff5252;
+        color: white;
+        border: none;
+        padding: 4px 8px;
+        border-radius: 6px; /* Updated border radius */
+        font-size: 12px;
+        cursor: pointer;
+        font-family: inherit;
+        line-height: 1;
+        transition: background 0.1s ease;
+      }
+
+      .close-btn {
+        background: none;
+        border: none;
+        color: #fff;
+        font-size: 16px;
+        padding: 4px 8px;
+        cursor: pointer;
+      }
+
+      /* --- List and Item Styles --- */
+      .history-list {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      .history-item {
+        padding: 10px;
+        background: #f7f7f7; /* Light gray background */
+        border-radius: 8px;
+        cursor: pointer;
+        transition: background 0.2s;
+        position: relative;
+        border: 1px solid #eee;
+      }
+
+      .history-item:hover {
+        background: #e0e0e0; /* Hover effect */
+      }
+
+      .item-date {
+        font-size: 11px;
+        color: #888;
+        margin-bottom: 4px;
+        font-weight: 500;
+      }
+
+      .item-text {
+        font-size: 14px;
+        color: black;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        /* Mimic -webkit-line-clamp for a multi-line ellipsis effect */
+        display: block;
+        max-height: 4.2em; /* Approx 3 lines of text */
+        line-height: 1.4;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="clipboardHistoryCard">
+      <div class="history-header">
+        <span class="clip-board">📋 Clipboard History</span>
+        <div class="button-container">
+          <button id="clearHistoryBtn">Clear</button>
+          <button class="close-btn">×</button>
+        </div>
+      </div>
+
+      <div class="history-list">
+        <div class="history-item">
+          <div class="item-date">2 hours ago</div>
+          <div class="item-text">
+            This is the first copied item, showing a clean, modern card style
+            with a nice box shadow and a rounded container for the text snippet.
+            The text is limited to a few lines.
+          </div>
+        </div>
+
+        <div class="history-item">
+          <div class="item-date">1 hour ago</div>
+          <div class="item-text">This one is shorter.</div>
+        </div>
+
+        <div class="history-item">
+          <div class="item-date">30 minutes ago</div>
+          <div class="item-text">
+            This item contains a very long piece of copied text that should
+            naturally overflow and be clipped by the CSS styles we applied. This
+            demonstrates how the max-height and overflow properties work
+            together.
+          </div>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>
