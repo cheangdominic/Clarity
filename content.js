@@ -2,7 +2,6 @@ let popupTimeout;
 let documentClickListener = null;
 let lastClipboardText = "";
 
-// Clipboard tracker
 setInterval(async () => {
   try {
     const text = await navigator.clipboard.readText();
@@ -26,15 +25,56 @@ function showLoadingSpinner(container) {
   `;
 }
 
-function markdownToHtml(md) {
-  if (!md) return "";
-  md = md.replace(/(?:__|[*#])|\[(.*?)\]\(.*?\)/g, "$1");
-  return md.replace(/\n/g, "<br>");
+function wrapSelectionInSpan(range) {
+  if (range.collapsed) return null;
+  const span = document.createElement("span");
+  span.style.transition = "background-color 0.2s ease";
+  range.surroundContents(span);
+  return span;
 }
 
-// Create a modal
+function makeModalDraggable(modal) {
+  const header = modal.querySelector(".modal-header");
+  if (!header) return;
+  let offsetX = 0,
+      offsetY = 0,
+      isDragging = false;
+  header.style.cursor = "move";
+
+  header.addEventListener("mousedown", (e) => {
+    isDragging = true;
+    const rect = modal.getBoundingClientRect();
+    offsetX = e.clientX - rect.left;
+    offsetY = e.clientY - rect.top;
+    modal.style.transition = "none";
+    document.body.style.userSelect = "none";
+    if (modal._highlight) modal._highlight.style.backgroundColor = "#ffff99";
+  });
+
+  document.addEventListener("mousemove", (e) => {
+    if (!isDragging) return;
+    modal.style.left = `${e.clientX - offsetX}px`;
+    modal.style.top = `${e.clientY - offsetY}px`;
+    modal.style.transform = "none";
+  });
+
+  document.addEventListener("mouseup", () => {
+    if (isDragging && modal._highlight) modal._highlight.style.backgroundColor = "";
+    isDragging = false;
+    modal.style.transition = "opacity 0.2s ease, transform 0.2s ease";
+    document.body.style.userSelect = "auto";
+  });
+
+  header.addEventListener("mouseenter", () => {
+    if (modal._highlight) modal._highlight.style.backgroundColor = "#ffff99";
+  });
+
+  header.addEventListener("mouseleave", () => {
+    if (modal._highlight) modal._highlight.style.backgroundColor = "";
+  });
+}
+
 function createModal(id, title) {
-  if (document.getElementById(id)) return;
   const modal = document.createElement("div");
   modal.id = id;
   Object.assign(modal.style, {
@@ -50,36 +90,45 @@ function createModal(id, title) {
     position: "absolute",
     transition: "opacity 0.2s ease, transform 0.2s ease",
   });
-
   modal.innerHTML = `
-    <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;background:#333;color:#fff;">
-      <span style="font-weight:600;">${title}</span>
-      <button class="close-btn" style="background:none;border:none;color:#fff;font-size:20px;cursor:pointer;">×</button>
-    </div>
-    <div class="modal-content" style="padding:14px 16px;max-height:220px;overflow:auto;font-size:14px;line-height:1.45;color:#333;"></div>
+   <div class="modal-header" style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;background:#333;color:#fff;">
+     <span style="font-weight:600;">${title}</span>
+     <button class="close-btn" style="background:none;border:none;color:#fff;font-size:20px;cursor:pointer;padding:0;line-height:1;">×</button>
+   </div>
+   <div class="modal-content" style="padding:14px 16px;max-height:220px;overflow:auto;font-size:14px;line-height:1.45;color:#333;"></div>
   `;
-
   document.body.appendChild(modal);
-  modal.querySelector(".close-btn").onclick = () => (modal.style.display = "none");
+  modal.querySelector(".close-btn").onclick = () => {
+    modal.style.display = "none";
+    if (modal._highlight) {
+      const span = modal._highlight;
+      const parent = span.parentNode;
+      while (span.firstChild) parent.insertBefore(span.firstChild, span);
+      parent.removeChild(span);
+    }
+  };
+  makeModalDraggable(modal);
+  return modal;
 }
 
-// Highlight popup
 function showHighlightPopup() {
   const selection = window.getSelection();
   const selectedText = selection.toString().trim();
   if (!selectedText) return;
 
-  document.getElementById("highlightPopup")?.remove();
-  document.getElementById("clipboardHistoryCard")?.remove();
-
+  const oldPopup = document.getElementById("highlightPopup");
+  if (oldPopup) oldPopup.remove();
+  const oldHistoryCard = document.getElementById("clipboardHistoryCard");
+  if (oldHistoryCard) oldHistoryCard.remove();
   if (documentClickListener) {
     document.removeEventListener("click", documentClickListener);
     documentClickListener = null;
   }
 
   const range = selection.getRangeAt(0);
-  const rect = range.getBoundingClientRect();
+  const highlightSpan = wrapSelectionInSpan(range);
 
+  const rect = range.getBoundingClientRect();
   const popup = document.createElement("div");
   popup.id = "highlightPopup";
   Object.assign(popup.style, {
@@ -99,25 +148,21 @@ function showHighlightPopup() {
     opacity: "0",
     transition: "opacity 0.2s ease, transform 0.2s ease",
   });
-
   popup.innerHTML = `
     <button id="summarizeBtn" style="background:none;border:none;color:white;cursor:pointer;">✨ Summarize</button>
     <button id="notesBtn" style="background:none;border:none;color:white;cursor:pointer;">📝 Notes</button>
     <button id="translateBtn" style="background:none;border:none;color:white;cursor:pointer;">🌐 Translate</button>
     <button id="viewHistoryBtn" style="background:none;border:none;color:white;cursor:pointer;">📋 History</button>
   `;
-
   document.body.appendChild(popup);
   requestAnimationFrame(() => {
     popup.style.opacity = "1";
     popup.style.transform = "translateX(-50%) translateY(0)";
   });
 
-  // Summarize button
   popup.querySelector("#summarizeBtn").onclick = async () => {
-    const modalId = "summaryModal";
-    createModal(modalId, "Summary");
-    const modal = document.getElementById(modalId);
+    const modal = createModal(`summaryModal-${Date.now()}`, "Summary");
+    modal._highlight = highlightSpan;
     const content = modal.querySelector(".modal-content");
     showLoadingSpinner(content);
     modal.style.display = "block";
@@ -134,17 +179,15 @@ function showHighlightPopup() {
         body: JSON.stringify({ text: selectedText }),
       });
       const data = await res.json();
-      content.innerHTML = markdownToHtml(data.summary || "No summary available.");
+      content.innerHTML = data.summary || "No summary available.";
     } catch {
       content.innerHTML = `<p style="color:#a00;">Failed to fetch summary.</p>`;
     }
   };
 
-  // Notes button
   popup.querySelector("#notesBtn").onclick = async () => {
-    const modalId = "notesModal";
-    createModal(modalId, "Notes");
-    const modal = document.getElementById(modalId);
+    const modal = createModal(`notesModal-${Date.now()}`, "Notes");
+    modal._highlight = highlightSpan;
     const content = modal.querySelector(".modal-content");
     showLoadingSpinner(content);
     modal.style.display = "block";
@@ -161,7 +204,7 @@ function showHighlightPopup() {
         body: JSON.stringify({ text: selectedText }),
       });
       const data = await res.json();
-      content.innerHTML = markdownToHtml(data.notes || "No notes available.");
+      content.innerHTML = data.notes || "No notes available.";
     } catch {
       content.innerHTML = `<p style="color:#a00;">Failed to fetch notes.</p>`;
     }
@@ -179,10 +222,10 @@ function showHighlightPopup() {
 
   setTimeout(() => {
     documentClickListener = (e) => {
-      const card = document.getElementById("clipboardHistoryCard");
-      if (!popup.contains(e.target) && (!card || !card.contains(e.target))) {
+      const historyCard = document.getElementById("clipboardHistoryCard");
+      if (!popup.contains(e.target) && (!historyCard || !historyCard.contains(e.target))) {
         popup.remove();
-        if (card) card.remove();
+        if (historyCard) historyCard.remove();
         document.removeEventListener("click", documentClickListener);
         documentClickListener = null;
       }
@@ -194,19 +237,14 @@ function showHighlightPopup() {
 function showClipboardHistory(popup) {
   const oldCard = document.getElementById("clipboardHistoryCard");
   if (oldCard) oldCard.remove();
-
   chrome.storage.local.get(["clipboard"], (result) => {
     const history = result.clipboard || [];
     const card = document.createElement("div");
     card.id = "clipboardHistoryCard";
-    const popupRect = popup.getBoundingClientRect();
     Object.assign(card.style, {
       position: "absolute",
-      top: `${window.scrollY + popupRect.top - 10}px`,
-      left: `${window.scrollX + popupRect.left + popupRect.width / 2}px`,
-      transform: "translateX(-50%) translateY(-100%)",
-      background: "#fff",
-      color: "#333",
+      background: "white",
+      color: "black",
       padding: "12px",
       borderRadius: "8px",
       boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
@@ -218,27 +256,32 @@ function showClipboardHistory(popup) {
       opacity: "0",
       transition: "opacity 0.2s ease",
     });
-
-    if (!history.length) {
+    const popupRect = popup.getBoundingClientRect();
+    card.style.top = `${window.scrollY + popupRect.top - 10}px`;
+    card.style.left = `${window.scrollX + popupRect.left + popupRect.width / 2}px`;
+    card.style.transform = "translateX(-50%) translateY(-100%)";
+    if (history.length === 0) {
       card.innerHTML = `
         <div style="text-align:center;padding:20px;color:#666;">
           <div style="font-size:24px;margin-bottom:8px;">📋</div>
           <div style="font-weight:bold;margin-bottom:4px;">Clipboard History</div>
           <div style="font-size:12px;">No history yet. Copy some text!</div>
-        </div>`;
+        </div>
+      `;
     } else {
       card.innerHTML = `
         <div style="font-weight:bold;margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid #eee;display:flex;justify-content:space-between;align-items:center;">
           <span>📋 Clipboard History</span>
           <button id="clearHistoryBtn" style="background:#ff5252;color:white;border:none;padding:4px 8px;border-radius:4px;font-size:11px;cursor:pointer;">Clear</button>
-        </div>`;
+        </div>
+      `;
       const list = document.createElement("div");
       list.style.display = "flex";
       list.style.flexDirection = "column";
       list.style.gap = "8px";
       history.slice(0, 10).forEach((item) => {
-        const div = document.createElement("div");
-        Object.assign(div.style, {
+        const itemDiv = document.createElement("div");
+        Object.assign(itemDiv.style, {
           padding: "10px",
           background: "#f7f7f7",
           borderRadius: "8px",
@@ -247,16 +290,17 @@ function showClipboardHistory(popup) {
           position: "relative",
           border: "1px solid #eee",
         });
-        div.innerHTML = `
+        itemDiv.innerHTML = `
           <div style="font-size:10px;color:#666;margin-bottom:4px;">${item.date}</div>
-          <div style="font-size:13px;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${item.text}</div>`;
-        div.onclick = (e) => {
+          <div style="font-size:13px;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${item.text}</div>
+        `;
+        itemDiv.addEventListener("click", (e) => {
           e.stopPropagation();
           navigator.clipboard.writeText(item.text);
-          div.style.background = "#c8e6c9";
-          const fb = document.createElement("div");
-          fb.textContent = "✓ Copied";
-          Object.assign(fb.style, {
+          itemDiv.style.background = "#c8e6c9";
+          const feedback = document.createElement("div");
+          feedback.textContent = "✓ Copied";
+          Object.assign(feedback.style, {
             position: "absolute",
             top: "50%",
             left: "50%",
@@ -268,26 +312,27 @@ function showClipboardHistory(popup) {
             fontSize: "12px",
             fontWeight: "bold",
           });
-          div.appendChild(fb);
+          itemDiv.appendChild(feedback);
           setTimeout(() => {
-            div.style.background = "#f5f5f5";
-            fb.remove();
+            itemDiv.style.background = "#f7f7f7";
+            feedback.remove();
           }, 1000);
-        };
-        list.appendChild(div);
+        });
+        itemDiv.addEventListener("mouseenter", () => { itemDiv.style.background = "#e0e0e0"; });
+        itemDiv.addEventListener("mouseleave", () => { itemDiv.style.background = "#f7f7f7"; });
+        list.appendChild(itemDiv);
       });
       card.appendChild(list);
-      card.querySelector("#clearHistoryBtn").onclick = (e) => {
+      card.querySelector("#clearHistoryBtn").addEventListener("click", (e) => {
         e.stopPropagation();
-        if (confirm("Clear all clipboard history?"))
-          chrome.storage.local.set({ clipboard: [] }, () => {
-            card.remove();
-            popup.remove();
-          });
-      };
+        if (confirm("Clear all clipboard history?")) {
+          chrome.storage.local.set({ clipboard: [] }, () => { card.remove(); popup.remove(); });
+        }
+      });
     }
     document.body.appendChild(card);
-    requestAnimationFrame(() => (card.style.opacity = "1"));
+    makeModalDraggable(card);
+    requestAnimationFrame(() => { card.style.opacity = "1"; });
   });
 }
 
