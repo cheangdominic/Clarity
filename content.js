@@ -64,6 +64,7 @@ function showHighlightPopup() {
     <button id="notesBtn" style="background:none;border:none;color:white;cursor:pointer;">📝 Notes</button>
     <button id="translateBtn" style="background:none;border:none;color:white;cursor:pointer;">🌐 Translate</button>
     <button id="viewHistoryBtn" style="background:none;border:none;color:white;cursor:pointer;">📋 History</button>
+    <button id="highlightBtn" style="background:none;border:none;color:white;cursor:pointer;">💡 Highlight</button>
   `;
 
   document.body.appendChild(popup);
@@ -105,7 +106,6 @@ function showHighlightPopup() {
     }
   });
 
-
   popup.querySelector("#translateBtn").addEventListener("click", () => {
     alert("Translate: " + selectedText);
   });
@@ -116,10 +116,40 @@ function showHighlightPopup() {
     showClipboardHistory(popup);
   });
 
+  document.querySelector("#highlightBtn").addEventListener("click", () => {
+    const selection = window.getSelection();
+    if (!selection.rangeCount) return;
+
+    const selectedText = selection.toString().trim();
+    if (selectedText.length === 0) return;
+
+    const range = selection.getRangeAt(0);
+
+    try {
+      const extracted = range.extractContents();
+      const highlight = document.createElement("span");
+      highlight.style.backgroundColor = "yellow";
+      highlight.style.borderRadius = "2px";
+      highlight.style.padding = "0 2px";
+      highlight.className = "clarity-highlight";
+      highlight.appendChild(extracted);
+      range.insertNode(highlight);
+      selection.removeAllRanges();
+    } catch (err) {
+      console.error("Highlight failed, likely spans multiple elements:", err);
+      alert(
+        "Cannot highlight across complex HTML elements. Try a simpler selection."
+      );
+    }
+  });
+
   setTimeout(() => {
     documentClickListener = (e) => {
       const historyCard = document.getElementById("clipboardHistoryCard");
-      if (!popup.contains(e.target) && (!historyCard || !historyCard.contains(e.target))) {
+      if (
+        !popup.contains(e.target) &&
+        (!historyCard || !historyCard.contains(e.target))
+      ) {
         popup.remove();
         if (historyCard) historyCard.remove();
         document.removeEventListener("click", documentClickListener);
@@ -140,12 +170,14 @@ function showClipboardHistory(popup) {
     const card = document.createElement("div");
     card.id = "clipboardHistoryCard";
     card.style.position = "absolute";
-    
+
     const popupRect = popup.getBoundingClientRect();
     card.style.top = `${window.scrollY + popupRect.top - 10}px`;
-    card.style.left = `${window.scrollX + popupRect.left + popupRect.width / 2}px`;
+    card.style.left = `${
+      window.scrollX + popupRect.left + popupRect.width / 2
+    }px`;
     card.style.transform = "translateX(-50%) translateY(-100%)";
-    
+
     card.style.background = "white";
     card.style.color = "#333";
     card.style.padding = "12px";
@@ -180,7 +212,6 @@ function showClipboardHistory(popup) {
       list.style.flexDirection = "column";
       list.style.gap = "8px";
 
-      
       history.slice(0, 10).forEach((item, index) => {
         const itemDiv = document.createElement("div");
         /*
@@ -198,7 +229,7 @@ function showClipboardHistory(popup) {
           cursor: "pointer",
           transition: "background 0.2s",
           position: "relative",
-          border: "1px solid #eee", 
+          border: "1px solid #eee",
         });
         itemDiv.innerHTML = `
           <div style="font-size:10px;color:#666;margin-bottom:4px;">${item.date}</div>
@@ -211,7 +242,7 @@ function showClipboardHistory(popup) {
           e.stopPropagation();
           navigator.clipboard.writeText(item.text);
           itemDiv.style.background = "#c8e6c9";
-          
+
           const feedback = document.createElement("div");
           feedback.textContent = "✓ Copied";
           feedback.style.position = "absolute";
@@ -225,7 +256,7 @@ function showClipboardHistory(popup) {
           feedback.style.fontSize = "12px";
           feedback.style.fontWeight = "bold";
           itemDiv.appendChild(feedback);
-          
+
           setTimeout(() => {
             itemDiv.style.background = "#f5f5f5";
             feedback.remove();
