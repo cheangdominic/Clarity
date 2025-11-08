@@ -13,7 +13,16 @@
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
-      "js": ["content.js"],
+      "js": [
+        "content/namespace.js",
+        "content/common.js",
+        "content/modal.js",
+        "content/highlight-core.js",
+        "content/tags-panel.js",
+        "content/clipboard.js",
+        "content/popup.js",
+        "content/init.js"
+      ],
       "run_at": "document_idle"
     }
   ],
