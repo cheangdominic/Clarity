@@ -91,6 +91,16 @@
     return `rgba(${r}, ${g}, ${b}, ${alpha})`;
   };
 
+  Common.showLoadingSpinner = function showLoadingSpinner(container) {
+    if (!container) return;
+    container.innerHTML = `
+      <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100px;color:#666;">
+        <div style="border:4px solid #f3f3f3;border-top:4px solid #333;border-radius:50%;width:28px;height:28px;animation:clarity-spin 1s linear infinite;"></div>
+        <div style="margin-top:10px;font-size:13px;">Loading...</div>
+      </div>
+      <style>@keyframes clarity-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }</style>
+    `;
+  };
+
   window.Clarity.Common = Common;
 })();
-

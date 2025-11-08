@@ -1,3 +1,4 @@
+
 (function () {
   const { markdownToHtml } = window.Clarity.Common;
 
@@ -19,7 +20,7 @@
       transition: "opacity 0.2s ease, transform 0.2s ease",
     });
     modal.innerHTML = `
-      <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;background:#111;color:#fff;">
+      <div class="modal-header" style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;background:#111;color:#fff;cursor:move;">
         <span style="font-weight:600;">${title}</span>
         <button aria-label="Close" style="background:none;border:none;color:#fff;font-size:20px;cursor:pointer;">×</button>
       </div>
@@ -27,6 +28,7 @@
     `;
     document.body.appendChild(modal);
     modal.querySelector("button").onclick = () => (modal.style.display = "none");
+    makeDraggable(modal);
     return modal;
   }
 
@@ -42,6 +44,35 @@
     requestAnimationFrame(() => (modal.style.opacity = "1"));
   }
 
+  function makeDraggable(modal) {
+    const header = modal.querySelector(".modal-header");
+    if (!header) return;
+    let startX = 0, startY = 0, origLeft = 0, origTop = 0, dragging = false;
+    header.addEventListener("mousedown", (e) => {
+      dragging = true;
+      const rect = modal.getBoundingClientRect();
+      startX = e.clientX; startY = e.clientY;
+      origLeft = rect.left + window.scrollX;
+      origTop = rect.top + window.scrollY;
+      modal.style.transition = "none";
+      document.body.style.userSelect = "none";
+      e.preventDefault();
+    });
+    document.addEventListener("mousemove", (e) => {
+      if (!dragging) return;
+      const dx = e.clientX - startX;
+      const dy = e.clientY - startY;
+      modal.style.left = `${origLeft + dx}px`;
+      modal.style.top = `${origTop + dy}px`;
+      modal.style.transform = "none";
+    });
+    document.addEventListener("mouseup", () => {
+      if (!dragging) return;
+      dragging = false;
+      modal.style.transition = "opacity 0.2s ease, transform 0.2s ease";
+      document.body.style.userSelect = "auto";
+    });
+  }
+
   window.Clarity.Modal = { createModal, showModal };
 })();
-
