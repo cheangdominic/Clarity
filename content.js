@@ -27,9 +27,13 @@ function showLoadingSpinner(container) {
 
 function wrapSelectionInSpan(range) {
   if (range.collapsed) return null;
+
   const span = document.createElement("span");
-  span.style.transition = "background-color 0.2s ease";
-  range.surroundContents(span);
+
+  const contents = range.extractContents();
+  span.appendChild(contents);
+  range.insertNode(span);
+
   return span;
 }
 
@@ -37,8 +41,8 @@ function makeModalDraggable(modal) {
   const header = modal.querySelector(".modal-header");
   if (!header) return;
   let offsetX = 0,
-      offsetY = 0,
-      isDragging = false;
+    offsetY = 0,
+    isDragging = false;
   header.style.cursor = "move";
 
   header.addEventListener("mousedown", (e) => {
@@ -48,7 +52,6 @@ function makeModalDraggable(modal) {
     offsetY = e.clientY - rect.top;
     modal.style.transition = "none";
     document.body.style.userSelect = "none";
-    if (modal._highlight) modal._highlight.style.backgroundColor = "#ffff99";
   });
 
   document.addEventListener("mousemove", (e) => {
@@ -59,14 +62,11 @@ function makeModalDraggable(modal) {
   });
 
   document.addEventListener("mouseup", () => {
-    if (isDragging && modal._highlight) modal._highlight.style.backgroundColor = "";
+    if (isDragging && modal._highlight)
+      modal._highlight.style.backgroundColor = "";
     isDragging = false;
     modal.style.transition = "opacity 0.2s ease, transform 0.2s ease";
     document.body.style.userSelect = "auto";
-  });
-
-  header.addEventListener("mouseenter", () => {
-    if (modal._highlight) modal._highlight.style.backgroundColor = "#ffff99";
   });
 
   header.addEventListener("mouseleave", () => {
@@ -223,7 +223,10 @@ function showHighlightPopup() {
   setTimeout(() => {
     documentClickListener = (e) => {
       const historyCard = document.getElementById("clipboardHistoryCard");
-      if (!popup.contains(e.target) && (!historyCard || !historyCard.contains(e.target))) {
+      if (
+        !popup.contains(e.target) &&
+        (!historyCard || !historyCard.contains(e.target))
+      ) {
         popup.remove();
         if (historyCard) historyCard.remove();
         document.removeEventListener("click", documentClickListener);
@@ -258,7 +261,9 @@ function showClipboardHistory(popup) {
     });
     const popupRect = popup.getBoundingClientRect();
     card.style.top = `${window.scrollY + popupRect.top - 10}px`;
-    card.style.left = `${window.scrollX + popupRect.left + popupRect.width / 2}px`;
+    card.style.left = `${
+      window.scrollX + popupRect.left + popupRect.width / 2
+    }px`;
     card.style.transform = "translateX(-50%) translateY(-100%)";
     if (history.length === 0) {
       card.innerHTML = `
@@ -318,21 +323,30 @@ function showClipboardHistory(popup) {
             feedback.remove();
           }, 1000);
         });
-        itemDiv.addEventListener("mouseenter", () => { itemDiv.style.background = "#e0e0e0"; });
-        itemDiv.addEventListener("mouseleave", () => { itemDiv.style.background = "#f7f7f7"; });
+        itemDiv.addEventListener("mouseenter", () => {
+          itemDiv.style.background = "#e0e0e0";
+        });
+        itemDiv.addEventListener("mouseleave", () => {
+          itemDiv.style.background = "#f7f7f7";
+        });
         list.appendChild(itemDiv);
       });
       card.appendChild(list);
       card.querySelector("#clearHistoryBtn").addEventListener("click", (e) => {
         e.stopPropagation();
         if (confirm("Clear all clipboard history?")) {
-          chrome.storage.local.set({ clipboard: [] }, () => { card.remove(); popup.remove(); });
+          chrome.storage.local.set({ clipboard: [] }, () => {
+            card.remove();
+            popup.remove();
+          });
         }
       });
     }
     document.body.appendChild(card);
     makeModalDraggable(card);
-    requestAnimationFrame(() => { card.style.opacity = "1"; });
+    requestAnimationFrame(() => {
+      card.style.opacity = "1";
+    });
   });
 }
 
@@ -343,5 +357,18 @@ document.addEventListener("dblclick", () => {
 
 document.addEventListener("selectionchange", () => {
   clearTimeout(popupTimeout);
-  popupTimeout = setTimeout(showHighlightPopup, 150);
+  popupTimeout = setTimeout(() => {
+    const selection = window.getSelection();
+    const selectedText = selection.toString().trim();
+    const existingPopup = document.getElementById("highlightPopup");
+
+    if (!selectedText || selection.isCollapsed) {
+      if (existingPopup) existingPopup.remove();
+      return;
+    }
+
+    if (!existingPopup) {
+      showHighlightPopup();
+    }
+  }, 150);
 });
