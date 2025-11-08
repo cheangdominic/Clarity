@@ -89,44 +89,21 @@ function showHighlightPopup() {
     }
   });
 
-popup.querySelector("#notesBtn").addEventListener("click", async () => {
-  try {
-    const response = await fetch(
-      "https://api.openai.com/v1/chat/completions",
-      {
+  popup.querySelector("#notesBtn").addEventListener("click", async () => {
+    try {
+      const res = await fetch("http://localhost:5000/notes", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${API_KEY}`,
-        },
-        body: JSON.stringify({
-          model: "gpt-5-mini",
-          messages: [
-            {
-              role: "system",
-              content:
-                "You are a helpful assistant that converts text into clear, structured, and study-friendly notes. Organize the content into bullet points or numbered lists, highlight key terms, concepts, and examples, and make it easy to review and understand.",
-            },
-            { role: "user", content: selectedText },
-          ],
-          max_tokens: 300,
-        }),
-      }
-    );
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: selectedText }),
+      });
 
-    const data = await response.json();
-
-    if (data.choices && data.choices.length > 0) {
-      const notes = data.choices[0].message.content;
-      popup.innerHTML = `<div style="padding:10px; color:white; max-width:300px; word-wrap:break-word;">📝 Notes:<br>${notes}</div>`;
-    } else {
-      popup.innerHTML = `<div style="padding:10px; color:red;">No notes returned from API.</div>`;
+      const data = await res.json();
+      popup.innerHTML = `<div style="padding:10px; color:white;">📝 Notes: ${data.notes}</div>`;
+    } catch (err) {
+      console.error(err);
+      popup.innerHTML = `<div style="padding:10px; color:red;">Failed to get summary</div>`;
     }
-  } catch (err) {
-    console.error(err);
-    popup.innerHTML = `<div style="padding:10px; color:red;">Failed to get notes</div>`;
-  }
-});
+  });
 
 
   popup.querySelector("#translateBtn").addEventListener("click", () => {
