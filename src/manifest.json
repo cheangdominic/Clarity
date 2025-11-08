@@ -1,0 +1,18 @@
+{
+    "manifest_version": 3,
+    "name": "Clarity",
+    "version": "1.0.0",
+    "description": "A chrome extension designed for students, researchers, and anyone who reads online, Clarity transforms passive reading into active learning.",
+    "action": {
+      "default_popup": "index.html"
+    },
+    "permissions": ["scripting", "activeTab"],
+    "content_scripts": [
+      {
+        "matches": ["<all_urls>"],
+        "js": ["content.js"],
+        "run_at": "document_end"
+      }
+    ],
+    "host_permissions": ["<all_urls>"]
+}
