@@ -102,72 +102,111 @@ app.post("/notes", async (req, res) => {
   const { text } = req.body;
   console.log("\nInput Text:", text);
   if (!text || text.trim().length === 0) {
-      const message = "Not enough content to make notes";
-      console.log("Generated Notes:", message);
-      return res.json({ notes: message });
+    const message = "Not enough content to make notes";
+    console.log("Generated Notes:", message);
+    return res.json({ notes: message });
   }
   try {
-      const checkResponse = await fetch("https://api.openai.com/v1/chat/completions", {
-          method: "POST",
-          headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
-          },
-          body: JSON.stringify({
-              model: "gpt-4o-mini",
-              messages: [
-                  {
-                      role: "system",
-                      content: "You are a helpful assistant that evaluates text for formatted notes.",
-                  },
-                  {
-                      role: "user",
-                      content: `Determine
+    const checkResponse = await fetch(
+      "https://api.openai.com/v1/chat/completions",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+        },
+        body: JSON.stringify({
+          model: "gpt-4o-mini",
+          messages: [
+            {
+              role: "system",
+              content:
+                "You are a helpful assistant that evaluates text for formatted notes.",
+            },
+            {
+              role: "user",
+              content: `Determine
                           if the following text is long enough and meaningful enough to create study notes
                           .Do not create any notes yet
                           .Only respond with YES or NO
-                          .If it 's too short, a single definition, or lacks enough information to form notes, respond NO.\n\nText: ${text}`
-                  },
-              ],
-              max_completion_tokens: 20,
-          }),
-      });
-      const checkData = await checkResponse.json();
-      const decisionRaw = checkData?.choices?.[0]?.message?.content?.toUpperCase() || "";
-      const decision = decisionRaw.includes("YES") ? "YES" : "NO";
-      if (decision !== "YES") {
-          const message = "Not enough content to write notes";
-          console.log("Generated Notes:", message);
-          return res.json({ notes: message });
+                          .If it 's too short, a single definition, or lacks enough information to form notes, respond NO.\n\nText: ${text}`,
+            },
+          ],
+          max_completion_tokens: 20,
+        }),
       }
-      const notesResponse = await fetch("https://api.openai.com/v1/chat/completions", {
-          method: "POST",
-          headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
-          },
-          body: JSON.stringify({
-              model: "gpt-4o-mini",
-              messages: [
-                  {
-                      role: "system",
-                      content: `You are a helpful note-taking assistant. Create concise, well-formatted notes based on the provided text. - Use plain text only (no Markdown, no asterisks, no bold or italics). - Use simple bullet points (- or •). - Focus on clear study notes with short, meaningful phrases. - Avoid filler words, redundant text, and examples unless needed for understanding. - Format output for readability, not decoration. - If it is a title of a subsection then do not have a bullet point - Note sections should have a title followed by points. Seperate sections with a new line in between the last section and the new one.`,
-                  },
-                  { role: "user", content: text },
-              ],
-              max_completion_tokens: 250,
-          }),
-      });
-      const notesData = await notesResponse.json();
-      const notes = notesData?.choices?.[0]?.message?.content?.trim() || "No notes generated";
-      console.log("Generated Notes:", notes);
-      res.json({ notes });
+    );
+    const checkData = await checkResponse.json();
+    const decisionRaw =
+      checkData?.choices?.[0]?.message?.content?.toUpperCase() || "";
+    const decision = decisionRaw.includes("YES") ? "YES" : "NO";
+    if (decision !== "YES") {
+      const message = "Not enough content to write notes";
+      console.log("Generated Notes:", message);
+      return res.json({ notes: message });
+    }
+    const notesResponse = await fetch(
+      "https://api.openai.com/v1/chat/completions",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+        },
+        body: JSON.stringify({
+          model: "gpt-4o-mini",
+          messages: [
+            {
+              role: "system",
+              content: `You are a helpful note-taking assistant. Create concise, well-formatted notes based on the provided text. - Use plain text only (no Markdown, no asterisks, no bold or italics). - Use simple bullet points (- or •). - Focus on clear study notes with short, meaningful phrases. - Avoid filler words, redundant text, and examples unless needed for understanding. - Format output for readability, not decoration. - If it is a title of a subsection then do not have a bullet point - Note sections should have a title followed by points. Seperate sections with a new line in between the last section and the new one.`,
+            },
+            { role: "user", content: text },
+          ],
+          max_completion_tokens: 250,
+        }),
+      }
+    );
+    const notesData = await notesResponse.json();
+    const notes =
+      notesData?.choices?.[0]?.message?.content?.trim() || "No notes generated";
+    console.log("Generated Notes:", notes);
+    res.json({ notes });
   } catch (err) {
-      console.error("OpenAI API error:", err);
-      res.status(500).json({ error: "Failed to generate notes" });
+    console.error("OpenAI API error:", err);
+    res.status(500).json({ error: "Failed to generate notes" });
   }
 });
 
+app.post("/translate", async (req, res) => {
+  const { text, target = "es" } = req.body;
+
+  if (!text || text.trim().length === 0) {
+    return res.status(400).json({ error: "No text provided" });
+  }
+
+  try {
+    const response = await fetch(
+      `https://translation.googleapis.com/language/translate/v2?key=${process.env.GOOGLE_API_KEY}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          q: text,
+          target,
+          format: "text",
+        }),
+      }
+    );
+
+    const data = await response.json();
+    const translatedText = data.data?.translations?.[0]?.translatedText;
+
+    res.json({ translatedText });
+  } catch (error) {
+    console.error("Translation error:", error);
+    res.status(500).json({ error: "Failed to translate text" });
+  }
+});
 
 app.post("/openai", async (req, res) => {
   const { model, messages, max_tokens } = req.body;
