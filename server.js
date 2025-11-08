@@ -166,7 +166,9 @@ app.post("/notes", async (req, res) => {
               - Use simple bullet points (- or •).
               - Focus on clear study notes with short, meaningful phrases.
               - Avoid filler words, redundant text, and examples unless needed for understanding.
-              - Format output for readability, not decoration.`,              
+              - Format output for readability, not decoration.
+              - If it is a title of a subsection then do not have a bullet point
+              - Note sections should have a title followed by points. Seperate sections with a new line in between the last section and the new one.`,              
             },
             { role: "user", content: text },
           ],
