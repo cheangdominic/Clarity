@@ -47,9 +47,21 @@ function showHighlightPopup() {
     popup.style.transform = "translateX(-50%) translateY(0)";
   });
 
-  popup.querySelector("#summarizeBtn").addEventListener("click", () => {
-    alert("Summarize: " + selectedText);
-});
+  popup.querySelector("#summarizeBtn").addEventListener("click", async () => {
+    try {
+      const res = await fetch("http://localhost:5000/summarize", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: selectedText }),
+      });
+
+      const data = await res.json();
+      popup.innerHTML = `<div style="padding:10px; color:white;">✨ Summary: ${data.summary}</div>`;
+    } catch (err) {
+      console.error(err);
+      popup.innerHTML = `<div style="padding:10px; color:red;">Failed to get summary</div>`;
+    }
+  });
 
 popup.querySelector("#notesBtn").addEventListener("click", async () => {
   try {
