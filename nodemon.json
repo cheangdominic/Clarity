@@ -1,0 +1,13 @@
+{
+  "watch": ["server.js"],
+  "ignore": [
+    "content.js",
+    "background.js",
+    "public/*",
+    "src/*",
+    "index.js",
+    "tailwind.config.js",
+    "vite.config.js",
+    "*.html"
+  ]
+}

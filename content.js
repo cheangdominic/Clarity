@@ -246,8 +246,8 @@ function showClipboardHistory(popup) {
     card.id = "clipboardHistoryCard";
     Object.assign(card.style, {
       position: "absolute",
-      background: "white",
-      color: "black",
+      background: "black",
+      color: "white",
       padding: "12px",
       borderRadius: "8px",
       boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
@@ -275,15 +275,19 @@ function showClipboardHistory(popup) {
       `;
     } else {
       card.innerHTML = `
-        <div style="font-weight:bold;margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid #eee;display:flex;justify-content:space-between;align-items:center;">
+        <div style="font-weight:bold;margin-bottom:12px;padding:8px;border-bottom:1px solid #eee;display:flex;justify-content:space-between;align-items:center;">
           <span>📋 Clipboard History</span>
-          <button id="clearHistoryBtn" style="background:#ff5252;color:white;border:none;padding:4px 8px;border-radius:4px;font-size:11px;cursor:pointer;">Clear</button>
+          <div style="display:flex;align-items:center;">
+            <button id="clearHistoryBtn" style="background:#ff5252;color:white;border:none;padding:4px 8px;border-radius:4px;font-size:11px;cursor:pointer;">Clear</button>
+            <button id="closeHistoryBtn" style="background:none;border:none;color:white;font-size:20px;cursor:pointer;line-height:1;padding:5px;margin-left:8px;">×</button>
+          </div>
         </div>
       `;
       const list = document.createElement("div");
       list.style.display = "flex";
       list.style.flexDirection = "column";
       list.style.gap = "8px";
+      list.style.color = "black";
       history.slice(0, 10).forEach((item) => {
         const itemDiv = document.createElement("div");
         Object.assign(itemDiv.style, {
@@ -340,6 +344,10 @@ function showClipboardHistory(popup) {
             popup.remove();
           });
         }
+      });
+      card.querySelector("#closeHistoryBtn").addEventListener("click", (e) => {
+        e.stopPropagation();
+        card.remove();
       });
     }
     document.body.appendChild(card);
