@@ -2,6 +2,8 @@ let popupTimeout;
 let documentClickListener = null;
 let lastClipboardText = "";
 let lastCreatedHighlight = null; 
+let hoverHideTimeout = null; // for hover-based menu hide
+let menuHovering = false; // track mouse over mini-menu
 
 setInterval(async () => {
   try {
@@ -230,34 +232,35 @@ function showHighlightPopup() {
     const selectedText = selection.toString().trim();
     if (selectedText.length === 0) return;
 
-    const range = selection.getRangeAt(0);
+    const range = selection.getRangeAt(0).cloneRange();
+    const rectSel = range.getBoundingClientRect();
 
-    try {
-      const extracted = range.extractContents();
-      const highlight = document.createElement("span");
-      highlight.style.backgroundColor = "yellow";
-      highlight.style.borderRadius = "2px";
-      highlight.style.padding = "0 2px";
-      highlight.className = "clarity-highlight";
-      highlight.appendChild(extracted);
-      range.insertNode(highlight);
-      selection.removeAllRanges();
-      lastCreatedHighlight = highlight;
-
+    showHighlightColorPicker(rectSel, (styleSpec) => {
       try {
-        popup.remove();
-      } catch (_) {}
-      if (documentClickListener) {
-        document.removeEventListener("click", documentClickListener);
-        documentClickListener = null;
+        const extracted = range.extractContents();
+        const highlight = document.createElement("span");
+        // apply chosen color style
+        highlight.style.backgroundColor = styleSpec.background;
+        if (styleSpec.boxShadow) highlight.style.boxShadow = styleSpec.boxShadow;
+        highlight.style.borderRadius = "2px";
+        highlight.style.padding = "0 2px";
+        highlight.className = "clarity-highlight";
+        highlight.appendChild(extracted);
+        range.insertNode(highlight);
+        selection.removeAllRanges();
+        lastCreatedHighlight = highlight;
+
+        try { popup.remove(); } catch (_) {}
+        if (documentClickListener) {
+          document.removeEventListener("click", documentClickListener);
+          documentClickListener = null;
+        }
+        showTagActionsMenu(highlight);
+      } catch (err) {
+        console.error("Highlight failed, likely spans multiple elements:", err);
+        alert("Cannot highlight across complex HTML elements. Try a simpler selection.");
       }
-      showTagActionsMenu(highlight);
-    } catch (err) {
-      console.error("Highlight failed, likely spans multiple elements:", err);
-      alert(
-        "Cannot highlight across complex HTML elements. Try a simpler selection."
-      );
-    }
+    });
   });
 
   setTimeout(() => {
@@ -409,8 +412,9 @@ function showHighlightsPanel(popup) {
   const existing = document.getElementById("highlightsPanel");
   if (existing) existing.remove();
 
-  chrome.storage.local.get(["highlights"], (result) => {
+  chrome.storage.local.get(["highlights", "tagColors"], (result) => {
     const highlights = Array.isArray(result.highlights) ? result.highlights : [];
+    const tagColors = result.tagColors && typeof result.tagColors === "object" ? result.tagColors : {};
 
     const panel = document.createElement("div");
     panel.id = "highlightsPanel";
@@ -447,7 +451,12 @@ function showHighlightsPanel(popup) {
       empty.textContent = "No highlights yet. Create a highlight, then Tag it.";
       panel.appendChild(empty);
     } else {
-      const groups = highlights.reduce((acc, h) => {
+      const flat = [];
+      highlights.forEach((h) => {
+        const tags = Array.isArray(h.tags) && h.tags.length ? h.tags : ((h.tag || "").trim() ? [h.tag.trim()] : ["untagged"]);
+        tags.forEach((t) => flat.push({ ...h, tag: t }));
+      });
+      const groups = flat.reduce((acc, h) => {
         const key = (h.tag || "untagged").trim() || "untagged";
         (acc[key] = acc[key] || []).push(h);
         return acc;
@@ -460,7 +469,8 @@ function showHighlightsPanel(popup) {
       container.style.gap = "10px";
 
       tags.forEach((tag) => {
-        const color = tagToColor(tag);
+        const colorStr = tagColors[tag] || null;
+        const color = colorStr ? null : tagToColor(tag);
         const section = document.createElement("div");
         section.style.border = "1px solid #eee";
         section.style.borderRadius = "8px";
@@ -471,7 +481,7 @@ function showHighlightsPanel(popup) {
         header.style.justifyContent = "space-between";
         header.style.padding = "8px 10px";
         header.style.cursor = "pointer";
-        header.style.background = `hsla(${color.h}, ${color.s}%, ${color.l}%, 0.25)`;
+        header.style.background = colorStr ? colorStr : `hsla(${color.h}, ${color.s}%, ${color.l}%, 0.25)`;
         header.style.borderBottom = "1px solid #eee";
 
         const left = document.createElement("div");
@@ -480,7 +490,7 @@ function showHighlightsPanel(popup) {
         badge.style.display = "inline-block";
         badge.style.padding = "2px 8px";
         badge.style.borderRadius = "999px";
-        badge.style.background = `hsl(${color.h}, ${color.s}%, ${Math.max(35, color.l - 35)}%)`;
+        badge.style.background = colorStr ? colorStr : `hsl(${color.h}, ${color.s}%, ${Math.max(35, color.l - 35)}%)`;
         badge.style.color = "#fff";
         badge.style.fontSize = "11px";
         badge.style.marginRight = "8px";
@@ -604,6 +614,7 @@ function showTagActionsMenu(anchorEl) {
   menu.style.zIndex = "1000001";
   menu.style.fontSize = "13px";
   menu.style.display = "flex";
+  menu.style.alignItems = "center";
   menu.style.gap = "8px";
 
   const mkBtn = (label) => {
@@ -617,36 +628,80 @@ function showTagActionsMenu(anchorEl) {
     return btn;
   };
 
+  const badgesWrap = document.createElement("div");
+  badgesWrap.style.display = "flex";
+  badgesWrap.style.gap = "6px";
+  badgesWrap.style.alignItems = "center";
+  menu.appendChild(badgesWrap);
+
+  const renderBadges = (colorsMap) => {
+    badgesWrap.innerHTML = "";
+    const tags = getHighlightTags(anchorEl);
+    tags.forEach((t) => {
+      const badge = document.createElement("span");
+      badge.textContent = t;
+      badge.style.display = "inline-block";
+      badge.style.padding = "2px 8px";
+      badge.style.borderRadius = "999px";
+      const c = colorsMap && colorsMap[t] ? colorsMap[t] : null;
+      if (c) {
+        badge.style.background = c;
+        badge.style.color = "#fff";
+      } else {
+        const hc = tagToColor(t);
+        badge.style.background = `hsl(${hc.h}, ${hc.s}%, ${Math.max(35, hc.l - 35)}%)`;
+        badge.style.color = "#fff";
+      }
+      badge.style.fontSize = "11px";
+      badgesWrap.appendChild(badge);
+    });
+  };
+
+  chrome.storage.local.get(["tagColors"], (res) => {
+    renderBadges(res.tagColors || {});
+  });
+
   const createTagBtn = mkBtn("Create Tag");
   const openTagsBtn = mkBtn("Tags");
 
   createTagBtn.addEventListener("click", () => {
-    const currentTag = anchorEl.dataset.tag || "";
-    const tag = prompt("Enter a tag for the highlighted text:", currentTag);
-    if (tag === null) return; 
-    const cleanTag = (tag || "untagged").trim();
+    const existing = getHighlightTags(anchorEl);
+    const input = prompt(
+      "Enter tags (comma-separated):",
+      existing.join(", ")
+    );
+    if (input === null) return; 
+    const tags = input
+      .split(",")
+      .map((t) => t.trim())
+      .filter((t) => t.length > 0);
+    const uniqueTags = Array.from(new Set(tags));
+    setHighlightTags(anchorEl, uniqueTags);
 
-    const color = tagToColor(cleanTag);
-    anchorEl.style.backgroundColor = `hsla(${color.h}, ${color.s}%, ${color.l}%, 0.35)`;
-    anchorEl.style.borderRadius = "2px";
-    anchorEl.style.padding = "0 2px";
-    anchorEl.style.boxShadow = `inset 0 0 0 1px hsl(${color.h}, ${color.s}%, ${Math.max(0, color.l - 10)}%)`;
-    anchorEl.classList.add("clarity-highlight");
-    anchorEl.dataset.tag = cleanTag;
-    anchorEl.title = `Tag: ${cleanTag}`;
-
-    const item = {
-      tag: cleanTag,
+    const record = {
+      tags: uniqueTags,
+      tag: uniqueTags[0] || "", 
       text: anchorEl.textContent || "",
       url: location.href,
       title: document.title,
+      color: getComputedStyle(anchorEl).backgroundColor,
       date: new Date().toISOString(),
     };
-    chrome.storage.local.get(["highlights"], (result) => {
+
+    chrome.storage.local.get(["highlights", "tagColors"], (result) => {
       const list = Array.isArray(result.highlights) ? result.highlights : [];
-      list.unshift(item);
-      chrome.storage.local.set({ highlights: list.slice(0, 500) });
+      const tagColors = result.tagColors && typeof result.tagColors === "object" ? result.tagColors : {};
+
+      const baseColor = record.color || "";
+      uniqueTags.forEach((t) => {
+        if (!tagColors[t] && baseColor) tagColors[t] = baseColor;
+      });
+
+      list.unshift(record);
+      chrome.storage.local.set({ highlights: list.slice(0, 500), tagColors });
     });
+
+    showTagActionsMenu(anchorEl);
   });
 
   openTagsBtn.addEventListener("click", (e) => {
@@ -671,6 +726,18 @@ function showTagActionsMenu(anchorEl) {
     }
   };
   setTimeout(() => document.addEventListener("click", closer), 0);
+
+  menu.addEventListener("mouseenter", () => {
+    menuHovering = true;
+    if (hoverHideTimeout) {
+      clearTimeout(hoverHideTimeout);
+      hoverHideTimeout = null;
+    }
+  });
+  menu.addEventListener("mouseleave", () => {
+    menuHovering = false;
+    scheduleHoverMenuHide(anchorEl);
+  });
 }
 
 function getHighlightFromSelection() {
@@ -694,6 +761,135 @@ function getLastHighlightInDocument() {
   return nodes.length ? nodes[nodes.length - 1] : null;
 }
 
+function scheduleHoverMenuHide(anchorEl) {
+  if (hoverHideTimeout) clearTimeout(hoverHideTimeout);
+  hoverHideTimeout = setTimeout(() => {
+    const menu = document.getElementById("tagActionsMenu");
+    if (!menu) return;
+    if (menuHovering) return;
+    const stillOnHighlight = anchorEl && anchorEl.matches(":hover");
+    const stillOnMenu = menu.matches(":hover");
+    if (!stillOnHighlight && !stillOnMenu) {
+      try { menu.remove(); } catch (_) {}
+      const panel = document.getElementById("highlightsPanel");
+      if (panel && !panel.matches(":hover")) {
+        try { panel.remove(); } catch (_) {}
+      }
+    }
+  }, 180);
+}
+
+function showHighlightColorPicker(rect, onPick, onCancel) {
+  const id = "highlightColorPicker";
+  document.getElementById(id)?.remove();
+  const picker = document.createElement("div");
+  picker.id = id;
+  Object.assign(picker.style, {
+    position: "absolute",
+    top: `${window.scrollY + rect.top - 8}px`,
+    left: `${window.scrollX + rect.left + rect.width / 2}px`,
+    transform: "translateX(-50%) translateY(-100%)",
+    background: "#111",
+    color: "#fff",
+    padding: "8px 10px",
+    borderRadius: "10px",
+    boxShadow: "0 6px 16px rgba(0,0,0,0.35)",
+    zIndex: "1000002",
+    display: "flex",
+    gap: "8px",
+    alignItems: "center",
+  });
+
+  const presets = [
+    { h: 52, s: 95, l: 62 },   // yellow
+    { h: 140, s: 60, l: 60 },  // green
+    { h: 210, s: 80, l: 66 },  // blue
+    { h: 280, s: 60, l: 72 },  // purple
+    { h: 12, s: 85, l: 66 },   // orange
+    { h: 190, s: 70, l: 70 },  // cyan
+    { h: 330, s: 65, l: 72 },  // pink
+  ];
+
+  const makeDot = (bg, border) => {
+    const b = document.createElement("button");
+    Object.assign(b.style, {
+      width: "18px",
+      height: "18px",
+      borderRadius: "50%",
+      border: border || "1px solid rgba(255,255,255,0.6)",
+      background: bg,
+      cursor: "pointer",
+      padding: 0,
+    });
+    return b;
+  };
+
+  presets.forEach((c) => {
+    const bg = `hsla(${c.h}, ${c.s}%, ${c.l}%, 0.35)`;
+    const border = `1px solid hsl(${c.h}, ${c.s}%, ${Math.max(0, c.l - 10)}%)`;
+    const dot = makeDot(bg, border);
+    dot.addEventListener("click", () => {
+      try { picker.remove(); } catch (_) {}
+      onPick({ background: bg, boxShadow: `inset 0 0 0 1px hsl(${c.h}, ${c.s}%, ${Math.max(0, c.l - 10)}%)` });
+    });
+    picker.appendChild(dot);
+  });
+
+  const customWrap = document.createElement("label");
+  customWrap.textContent = " Custom";
+  customWrap.style.fontSize = "12px";
+  const input = document.createElement("input");
+  input.type = "color";
+  input.value = "#ffff00";
+  input.style.marginLeft = "6px";
+  input.addEventListener("input", () => {
+    const hex = input.value;
+    const rgba = hexToRgba(hex, 0.35);
+    const border = hexToRgba(hex, 0.6);
+    try { picker.remove(); } catch (_) {}
+    onPick({ background: rgba, boxShadow: `inset 0 0 0 1px ${border}` });
+  });
+  customWrap.appendChild(input);
+  picker.appendChild(customWrap);
+
+  document.body.appendChild(picker);
+
+  const close = (e) => {
+    if (!picker.contains(e.target)) {
+      try { picker.remove(); } catch (_) {}
+      document.removeEventListener("click", close);
+      if (onCancel) onCancel();
+    }
+  };
+  setTimeout(() => document.addEventListener("click", close), 0);
+}
+
+function hexToRgba(hex, alpha) {
+  const res = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+  if (!res) return hex;
+  const r = parseInt(res[1], 16);
+  const g = parseInt(res[2], 16);
+  const b = parseInt(res[3], 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+function getHighlightTags(el) {
+  if (!el) return [];
+  const raw = (el.dataset && (el.dataset.tags || el.dataset.tag)) || "";
+  if (!raw) return [];
+  return raw
+    .split(",")
+    .map((t) => t.trim())
+    .filter((t) => t.length > 0);
+}
+
+function setHighlightTags(el, tags) {
+  const unique = Array.from(new Set((tags || []).map((t) => t.trim()).filter(Boolean)));
+  if (!el.dataset) el.dataset = {};
+  el.dataset.tags = unique.join(",");
+  el.title = unique.length ? `Tags: ${unique.join(", ")}` : "";
+  el.classList.add("clarity-highlight");
+}
+
 document.addEventListener("dblclick", () => {
   clearTimeout(popupTimeout);
   popupTimeout = setTimeout(showHighlightPopup, 120);
@@ -715,4 +911,18 @@ document.addEventListener("selectionchange", () => {
       showHighlightPopup();
     }
   }, 150);
+});
+
+document.addEventListener("mouseover", (e) => {
+  const el = e.target.closest && e.target.closest(".clarity-highlight");
+  if (!el) return;
+  if (el.contains(e.relatedTarget)) return;
+  showTagActionsMenu(el);
+});
+
+document.addEventListener("mouseout", (e) => {
+  const el = e.target.closest && e.target.closest(".clarity-highlight");
+  if (!el) return;
+  if (el.contains(e.relatedTarget)) return;
+  scheduleHoverMenuHide(el);
 });
