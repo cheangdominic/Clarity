@@ -1,7 +1,7 @@
 let popupTimeout;
 let documentClickListener = null;
 let lastClipboardText = "";
-let lastCreatedHighlight = null;
+let lastCreatedHighlight = null; 
 let hoverHideTimeout = null; // for hover-based menu hide
 let menuHovering = false; // track mouse over mini-menu
 
@@ -154,11 +154,11 @@ function showHighlightPopup() {
     transition: "opacity 0.2s ease, transform 0.2s ease",
   });
   popup.innerHTML = `
-    <button id="summarizeBtn" style="background:none;border:none;color:white;cursor:pointer;font-weight:600;">✨ Summarize</button>
-    <button id="notesBtn" style="background:none;border:none;color:white;cursor:pointer;font-weight:600;">📝 Notes</button>
-    <button id="translateBtn" style="background:none;border:none;color:white;cursor:pointer;font-weight:600;">🌐 Translate</button>
-    <button id="viewHistoryBtn" style="background:none;border:none;color:white;cursor:pointer;font-weight:600;">📋 History</button>
-    <button id="highlightBtn" style="background:none;border:none;color:white;cursor:pointer;font-weight:600;">💡 Highlight</button>
+    <button id="summarizeBtn" style="background:none;border:none;color:white;cursor:pointer;">✨ Summarize</button>
+    <button id="notesBtn" style="background:none;border:none;color:white;cursor:pointer;">📝 Notes</button>
+    <button id="translateBtn" style="background:none;border:none;color:white;cursor:pointer;">🌐 Translate</button>
+    <button id="viewHistoryBtn" style="background:none;border:none;color:white;cursor:pointer;">📋 History</button>
+    <button id="highlightBtn" style="background:none;border:none;color:white;cursor:pointer;">💡 Highlight</button>
   `;
 
   document.body.appendChild(popup);
@@ -243,8 +243,7 @@ function showHighlightPopup() {
         const highlight = document.createElement("span");
         // apply chosen color style
         highlight.style.backgroundColor = styleSpec.background;
-        if (styleSpec.boxShadow)
-          highlight.style.boxShadow = styleSpec.boxShadow;
+        if (styleSpec.boxShadow) highlight.style.boxShadow = styleSpec.boxShadow;
         highlight.style.borderRadius = "2px";
         highlight.style.padding = "0 2px";
         highlight.className = "clarity-highlight";
@@ -253,9 +252,7 @@ function showHighlightPopup() {
         selection.removeAllRanges();
         lastCreatedHighlight = highlight;
 
-        try {
-          popup.remove();
-        } catch (_) {}
+        try { popup.remove(); } catch (_) {}
         if (documentClickListener) {
           document.removeEventListener("click", documentClickListener);
           documentClickListener = null;
@@ -263,9 +260,7 @@ function showHighlightPopup() {
         showTagActionsMenu(highlight);
       } catch (err) {
         console.error("Highlight failed, likely spans multiple elements:", err);
-        alert(
-          "Cannot highlight across complex HTML elements. Try a simpler selection."
-        );
+        alert("Cannot highlight across complex HTML elements. Try a simpler selection.");
       }
     });
   });
@@ -409,8 +404,8 @@ function tagToColor(tag) {
     hash |= 0;
   }
   const h = Math.abs(hash) % 360;
-  const s = 65;
-  const l = 75;
+  const s = 65; 
+  const l = 75; 
   return { h, s, l };
 }
 
@@ -419,22 +414,15 @@ function showHighlightsPanel(popup) {
   if (existing) existing.remove();
 
   chrome.storage.local.get(["highlights", "tagColors"], (result) => {
-    const highlights = Array.isArray(result.highlights)
-      ? result.highlights
-      : [];
-    const tagColors =
-      result.tagColors && typeof result.tagColors === "object"
-        ? result.tagColors
-        : {};
+    const highlights = Array.isArray(result.highlights) ? result.highlights : [];
+    const tagColors = result.tagColors && typeof result.tagColors === "object" ? result.tagColors : {};
 
     const panel = document.createElement("div");
     panel.id = "highlightsPanel";
     panel.style.position = "absolute";
     const popupRect = popup.getBoundingClientRect();
     panel.style.top = `${window.scrollY + popupRect.top - 10}px`;
-    panel.style.left = `${
-      window.scrollX + popupRect.left + popupRect.width / 2
-    }px`;
+    panel.style.left = `${window.scrollX + popupRect.left + popupRect.width / 2}px`;
     panel.style.transform = "translateX(-50%) translateY(-100%)";
     panel.style.background = "white";
     panel.style.color = "#333";
@@ -466,12 +454,7 @@ function showHighlightsPanel(popup) {
     } else {
       const flat = [];
       highlights.forEach((h) => {
-        const tags =
-          Array.isArray(h.tags) && h.tags.length
-            ? h.tags
-            : (h.tag || "").trim()
-            ? [h.tag.trim()]
-            : ["untagged"];
+        const tags = Array.isArray(h.tags) && h.tags.length ? h.tags : ((h.tag || "").trim() ? [h.tag.trim()] : ["untagged"]);
         tags.forEach((t) => flat.push({ ...h, tag: t }));
       });
       const groups = flat.reduce((acc, h) => {
@@ -499,9 +482,7 @@ function showHighlightsPanel(popup) {
         header.style.justifyContent = "space-between";
         header.style.padding = "8px 10px";
         header.style.cursor = "pointer";
-        header.style.background = colorStr
-          ? colorStr
-          : `hsla(${color.h}, ${color.s}%, ${color.l}%, 0.25)`;
+        header.style.background = colorStr ? colorStr : `hsla(${color.h}, ${color.s}%, ${color.l}%, 0.25)`;
         header.style.borderBottom = "1px solid #eee";
 
         const left = document.createElement("div");
@@ -510,9 +491,7 @@ function showHighlightsPanel(popup) {
         badge.style.display = "inline-block";
         badge.style.padding = "2px 8px";
         badge.style.borderRadius = "999px";
-        badge.style.background = colorStr
-          ? colorStr
-          : `hsl(${color.h}, ${color.s}%, ${Math.max(35, color.l - 35)}%)`;
+        badge.style.background = colorStr ? colorStr : `hsl(${color.h}, ${color.s}%, ${Math.max(35, color.l - 35)}%)`;
         badge.style.color = "#fff";
         badge.style.fontSize = "11px";
         badge.style.marginRight = "8px";
@@ -639,7 +618,7 @@ function showTagActionsMenu(anchorEl) {
   menu.style.alignItems = "center";
   menu.style.gap = "8px";
 
-  const makeBtn = (label) => {
+  const mkBtn = (label) => {
     const btn = document.createElement("button");
     btn.textContent = label;
     btn.style.background = "none";
@@ -671,10 +650,7 @@ function showTagActionsMenu(anchorEl) {
         badge.style.color = "#fff";
       } else {
         const hc = tagToColor(t);
-        badge.style.background = `hsl(${hc.h}, ${hc.s}%, ${Math.max(
-          35,
-          hc.l - 35
-        )}%)`;
+        badge.style.background = `hsl(${hc.h}, ${hc.s}%, ${Math.max(35, hc.l - 35)}%)`;
         badge.style.color = "#fff";
       }
       badge.style.fontSize = "11px";
@@ -686,13 +662,16 @@ function showTagActionsMenu(anchorEl) {
     renderBadges(res.tagColors || {});
   });
 
-  const createTagBtn = makeBtn("Create Tag");
-  const openTagsBtn = makeBtn("Tags");
+  const createTagBtn = mkBtn("Create Tag");
+  const openTagsBtn = mkBtn("Tags");
 
   createTagBtn.addEventListener("click", () => {
     const existing = getHighlightTags(anchorEl);
-    const input = prompt("Enter tags (comma-separated):", existing.join(", "));
-    if (input === null) return;
+    const input = prompt(
+      "Enter tags (comma-separated):",
+      existing.join(", ")
+    );
+    if (input === null) return; 
     const tags = input
       .split(",")
       .map((t) => t.trim())
@@ -702,7 +681,7 @@ function showTagActionsMenu(anchorEl) {
 
     const record = {
       tags: uniqueTags,
-      tag: uniqueTags[0] || "",
+      tag: uniqueTags[0] || "", 
       text: anchorEl.textContent || "",
       url: location.href,
       title: document.title,
@@ -712,10 +691,7 @@ function showTagActionsMenu(anchorEl) {
 
     chrome.storage.local.get(["highlights", "tagColors"], (result) => {
       const list = Array.isArray(result.highlights) ? result.highlights : [];
-      const tagColors =
-        result.tagColors && typeof result.tagColors === "object"
-          ? result.tagColors
-          : {};
+      const tagColors = result.tagColors && typeof result.tagColors === "object" ? result.tagColors : {};
 
       const baseColor = record.color || "";
       uniqueTags.forEach((t) => {
@@ -741,14 +717,12 @@ function showTagActionsMenu(anchorEl) {
 
   const closer = (e) => {
     const panel = document.getElementById("highlightsPanel");
-    if (!menu.contains(e.target) && (!panel || !panel.contains(e.target))) {
-      try {
-        menu.remove();
-      } catch (_) {}
-      if (panel)
-        try {
-          panel.remove();
-        } catch (_) {}
+    if (
+      !menu.contains(e.target) &&
+      (!panel || !panel.contains(e.target))
+    ) {
+      try { menu.remove(); } catch (_) {}
+      if (panel) try { panel.remove(); } catch (_) {}
       document.removeEventListener("click", closer);
     }
   };
@@ -797,14 +771,10 @@ function scheduleHoverMenuHide(anchorEl) {
     const stillOnHighlight = anchorEl && anchorEl.matches(":hover");
     const stillOnMenu = menu.matches(":hover");
     if (!stillOnHighlight && !stillOnMenu) {
-      try {
-        menu.remove();
-      } catch (_) {}
+      try { menu.remove(); } catch (_) {}
       const panel = document.getElementById("highlightsPanel");
       if (panel && !panel.matches(":hover")) {
-        try {
-          panel.remove();
-        } catch (_) {}
+        try { panel.remove(); } catch (_) {}
       }
     }
   }, 180);
@@ -832,13 +802,13 @@ function showHighlightColorPicker(rect, onPick, onCancel) {
   });
 
   const presets = [
-    { h: 52, s: 95, l: 62 }, // yellow
-    { h: 140, s: 60, l: 60 }, // green
-    { h: 210, s: 80, l: 66 }, // blue
-    { h: 280, s: 60, l: 72 }, // purple
-    { h: 12, s: 85, l: 66 }, // orange
-    { h: 190, s: 70, l: 70 }, // cyan
-    { h: 330, s: 65, l: 72 }, // pink
+    { h: 52, s: 95, l: 62 },   // yellow
+    { h: 140, s: 60, l: 60 },  // green
+    { h: 210, s: 80, l: 66 },  // blue
+    { h: 280, s: 60, l: 72 },  // purple
+    { h: 12, s: 85, l: 66 },   // orange
+    { h: 190, s: 70, l: 70 },  // cyan
+    { h: 330, s: 65, l: 72 },  // pink
   ];
 
   const makeDot = (bg, border) => {
@@ -860,16 +830,8 @@ function showHighlightColorPicker(rect, onPick, onCancel) {
     const border = `1px solid hsl(${c.h}, ${c.s}%, ${Math.max(0, c.l - 10)}%)`;
     const dot = makeDot(bg, border);
     dot.addEventListener("click", () => {
-      try {
-        picker.remove();
-      } catch (_) {}
-      onPick({
-        background: bg,
-        boxShadow: `inset 0 0 0 1px hsl(${c.h}, ${c.s}%, ${Math.max(
-          0,
-          c.l - 10
-        )}%)`,
-      });
+      try { picker.remove(); } catch (_) {}
+      onPick({ background: bg, boxShadow: `inset 0 0 0 1px hsl(${c.h}, ${c.s}%, ${Math.max(0, c.l - 10)}%)` });
     });
     picker.appendChild(dot);
   });
@@ -877,7 +839,6 @@ function showHighlightColorPicker(rect, onPick, onCancel) {
   const customWrap = document.createElement("label");
   customWrap.textContent = " Custom";
   customWrap.style.fontSize = "12px";
-  customWrap.style.fontWeight = "600";
   const input = document.createElement("input");
   input.type = "color";
   input.value = "#ffff00";
@@ -886,9 +847,7 @@ function showHighlightColorPicker(rect, onPick, onCancel) {
     const hex = input.value;
     const rgba = hexToRgba(hex, 0.35);
     const border = hexToRgba(hex, 0.6);
-    try {
-      picker.remove();
-    } catch (_) {}
+    try { picker.remove(); } catch (_) {}
     onPick({ background: rgba, boxShadow: `inset 0 0 0 1px ${border}` });
   });
   customWrap.appendChild(input);
@@ -898,9 +857,7 @@ function showHighlightColorPicker(rect, onPick, onCancel) {
 
   const close = (e) => {
     if (!picker.contains(e.target)) {
-      try {
-        picker.remove();
-      } catch (_) {}
+      try { picker.remove(); } catch (_) {}
       document.removeEventListener("click", close);
       if (onCancel) onCancel();
     }
@@ -927,9 +884,7 @@ function getHighlightTags(el) {
 }
 
 function setHighlightTags(el, tags) {
-  const unique = Array.from(
-    new Set((tags || []).map((t) => t.trim()).filter(Boolean))
-  );
+  const unique = Array.from(new Set((tags || []).map((t) => t.trim()).filter(Boolean)));
   if (!el.dataset) el.dataset = {};
   el.dataset.tags = unique.join(",");
   el.title = unique.length ? `Tags: ${unique.join(", ")}` : "";
