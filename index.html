@@ -105,50 +105,125 @@
     <div class="menu-option" style="border-right: 1px solid #555;" data-key="notes">📝 Notes</div>
     <div class="menu-option" style="border-right: 1px solid #555;" data-key="translate">🌐 Translate</div>
     <div class="menu-option" style="border-right: 1px solid #555;" data-key="history">📋 History</div>
-    <div class="menu-option" style="border-radius: 0 8px 8px 0;" data-key="highlight">💡 Highlight</div>
+    <div class="menu-option" style="border-radius: 0 8px 8px 0;" data-key="highlight">🖍️ Highlight</div>
   </div>
 </div>
 
 <script>
-  // Dark/Light toggle
-  const themeToggle = document.getElementById('themeToggle');
-  themeToggle.addEventListener('click', () => {
-    if (document.body.style.backgroundColor === 'rgb(17, 17, 17)') {
-      document.body.style.backgroundColor = '#f9f9f9';
-      document.body.style.color = '#111';
-    } else {
-      document.body.style.backgroundColor = '#111';
-      document.body.style.color = '#f9f9f9';
+  (function () {
+    const defaults = {
+      theme: 'light',
+      language: 'en',
+      enabledMenu: { summarize: true, notes: true, translate: true, history: true, highlight: true },
+    };
+
+    function applyTheme(theme) {
+      if (theme === 'dark') {
+        document.body.style.backgroundColor = '#111';
+        document.body.style.color = '#f9f9f9';
+      } else {
+        document.body.style.backgroundColor = '#f9f9f9';
+        document.body.style.color = '#111';
+      }
     }
-  });
 
-  // Menu option toggles: fade/unfade
-  document.querySelectorAll('.menu-options .menu-option').forEach(option => {
-    if (option.id === 'themeToggle') return;
-    option.addEventListener('click', () => {
-      option.classList.toggle('disabled');
-      const key = option.dataset.key;
-      const enabled = !option.classList.contains('disabled');
-      console.log(`${key} enabled: ${enabled}`);
+    function saveSettings(patch) {
+      chrome.storage.local.get(['settings'], (res) => {
+        const current = Object.assign({}, defaults, res.settings || {});
+        const next = Object.assign({}, current, patch || {});
+        chrome.storage.local.set({ settings: next });
+      });
+    }
+
+    function initFromStorage() {
+      const languageSelect = document.getElementById('language');
+      const themeToggle = document.getElementById('themeToggle');
+      chrome.storage.local.get(['settings'], (res) => {
+        const settings = Object.assign({}, defaults, res.settings || {});
+
+        // Theme
+        applyTheme(settings.theme);
+
+        // Language
+        languageSelect.value = settings.language || 'en';
+
+        // Menu toggles
+        document.querySelectorAll('.menu-options .menu-option').forEach((option) => {
+          if (option.id === 'themeToggle') return;
+          const key = option.dataset.key;
+          const enabled = settings.enabledMenu && key in settings.enabledMenu ? settings.enabledMenu[key] : true;
+          option.classList.toggle('disabled', !enabled);
+        });
+      });
+    }
+
+    // Theme toggle
+    document.getElementById('themeToggle').addEventListener('click', () => {
+      chrome.storage.local.get(['settings'], (res) => {
+        const theme = (res.settings && res.settings.theme) || defaults.theme;
+        const nextTheme = theme === 'dark' ? 'light' : 'dark';
+        applyTheme(nextTheme);
+        saveSettings({ theme: nextTheme });
+      });
     });
-  });
 
-  // Language select
-  const languageSelect = document.getElementById('language');
-  languageSelect.addEventListener('change', () => {
-    console.log('Language selected:', languageSelect.value);
-  });
+    // Menu option toggles: fade/unfade + persist
+    document.querySelectorAll('.menu-options .menu-option').forEach((option) => {
+      if (option.id === 'themeToggle') return;
+      option.addEventListener('click', () => {
+        const key = option.dataset.key;
+        const willEnable = option.classList.contains('disabled');
+        option.classList.toggle('disabled');
+        chrome.storage.local.get(['settings'], (res) => {
+          const s = Object.assign({}, defaults, res.settings || {});
+          s.enabledMenu = Object.assign({}, defaults.enabledMenu, s.enabledMenu || {});
+          s.enabledMenu[key] = willEnable;
+          chrome.storage.local.set({ settings: s });
+        });
+      });
+    });
 
-  // Import/Export Page State buttons
-  document.getElementById('importState').addEventListener('click', () => {
-    console.log('Import Page State clicked');
-    // Add your import logic here
-  });
+    // Language select + persist
+    document.getElementById('language').addEventListener('change', (e) => {
+      saveSettings({ language: e.target.value });
+    });
 
-  document.getElementById('exportState').addEventListener('click', () => {
-    console.log('Export Page State clicked');
-    // Add your export logic here
-  });
+    // Import/Export Page State buttons
+    document.getElementById('exportState').addEventListener('click', async () => {
+      chrome.storage.local.get(null, (all) => {
+        const blob = new Blob([JSON.stringify(all, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'clarity-settings.json';
+        a.click();
+        URL.revokeObjectURL(url);
+      });
+    });
+
+    document.getElementById('importState').addEventListener('click', () => {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = 'application/json';
+      input.onchange = () => {
+        const file = input.files && input.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = () => {
+          try {
+            const data = JSON.parse(reader.result);
+            chrome.storage.local.set(data, () => initFromStorage());
+          } catch (e) {
+            alert('Invalid settings file.');
+          }
+        };
+        reader.readAsText(file);
+      };
+      input.click();
+    });
+
+    document.addEventListener('DOMContentLoaded', initFromStorage);
+  })();
 </script>
 
 </body>

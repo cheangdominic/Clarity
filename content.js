@@ -1,7 +1,7 @@
 let popupTimeout;
 let documentClickListener = null;
 let lastClipboardText = "";
-let lastCreatedHighlight = null;
+// let lastCreatedHighlight = null;
 let hoverHideTimeout = null; // for hover-based menu hide
 let menuHovering = false; // track mouse over mini-menu
 
@@ -251,7 +251,7 @@ function showHighlightPopup() {
         highlight.appendChild(extracted);
         range.insertNode(highlight);
         selection.removeAllRanges();
-        lastCreatedHighlight = highlight;
+        // lastCreatedHighlight = highlight;
 
         try {
           popup.remove();
@@ -775,26 +775,26 @@ function showTagActionsMenu(anchorEl) {
   });
 }
 
-function getHighlightFromSelection() {
-  const sel = window.getSelection();
-  if (!sel || !sel.rangeCount) return null;
-  const node = sel.getRangeAt(0).startContainer;
-  return findAncestorHighlight(node);
-}
+// function getHighlightFromSelection() {
+//   const sel = window.getSelection();
+//   if (!sel || !sel.rangeCount) return null;
+//   const node = sel.getRangeAt(0).startContainer;
+//   return findAncestorHighlight(node);
+// }
 
-function findAncestorHighlight(node) {
-  let el = node && node.nodeType === 1 ? node : node && node.parentElement;
-  while (el) {
-    if (el.classList && el.classList.contains("clarity-highlight")) return el;
-    el = el.parentElement;
-  }
-  return null;
-}
+// function findAncestorHighlight(node) {
+//   let el = node && node.nodeType === 1 ? node : node && node.parentElement;
+//   while (el) {
+//     if (el.classList && el.classList.contains("clarity-highlight")) return el;
+//     el = el.parentElement;
+//   }
+//   return null;
+// }
 
-function getLastHighlightInDocument() {
-  const nodes = document.querySelectorAll(".clarity-highlight");
-  return nodes.length ? nodes[nodes.length - 1] : null;
-}
+// function getLastHighlightInDocument() {
+//   const nodes = document.querySelectorAll(".clarity-highlight");
+//   return nodes.length ? nodes[nodes.length - 1] : null;
+// }
 
 function scheduleHoverMenuHide(anchorEl) {
   if (hoverHideTimeout) clearTimeout(hoverHideTimeout);
