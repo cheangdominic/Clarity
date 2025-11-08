@@ -50,6 +50,7 @@ function makeModalDraggable(modal) {
 
   header.addEventListener("mousedown", (e) => {
     isDragging = true;
+    modal._highlight.style.backgroundColor = "#fbf719";
     const rect = modal.getBoundingClientRect();
     offsetX = e.clientX - rect.left;
     offsetY = e.clientY - rect.top;
@@ -59,6 +60,7 @@ function makeModalDraggable(modal) {
 
   document.addEventListener("mousemove", (e) => {
     if (!isDragging) return;
+    modal._highlight.style.backgroundColor = "#fbf719";
     modal.style.left = `${e.clientX - offsetX}px`;
     modal.style.top = `${e.clientY - offsetY}px`;
     modal.style.transform = "none";
@@ -272,7 +274,6 @@ function showHighlightPopup() {
         (!historyCard || !historyCard.contains(e.target)) &&
         (!highlightsPanel || !highlightsPanel.contains(e.target))
       ) {
-        popup.remove();
         if (historyCard) historyCard.remove();
         if (highlightsPanel) highlightsPanel.remove();
         document.removeEventListener("click", documentClickListener);
@@ -903,11 +904,13 @@ document.addEventListener("selectionchange", () => {
     const existingPopup = document.getElementById("highlightPopup");
 
     if (!selectedText || selection.isCollapsed) {
-      if (existingPopup) existingPopup.remove();
+      if (existingPopup) {
+        existingPopup.remove();
+      }
       return;
     }
 
-    if (!existingPopup) {
+    if (!existingPopup && selectedText) {
       showHighlightPopup();
     }
   }, 150);
