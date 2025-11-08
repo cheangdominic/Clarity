@@ -30,22 +30,56 @@ function inlineMarkdown(s) {
 }
 
 function markdownToHtml(md) {
-  md = escapeHtml(md)
-  const lines = md.split(/\r?\n/)
-  let html = ""
-  for (let line of lines) {
-    line = line.trim()
-    if (!line) continue
-    const h = line.match(/^(#{1,3})\s+(.*)$/)
-    if (h) {
-      const level = h[1].length
-      html += `<h${level} style="margin:10px 0 6px;font-weight:700;color:#111;">${inlineMarkdown(h[2])}</h${level}>`
-      continue
+  md = escapeHtml(md);
+  const lines = md.split(/\r?\n/);
+  let html = "";
+
+  function nextNonEmptyIndex(i) {
+    for (let j = i + 1; j < lines.length; j++) {
+      if (lines[j].trim().length > 0) return j;
     }
-    if (/^[-*]\s+/.test(line)) line = "• " + line.replace(/^[-*]\s+/, "")
-    html += `<p style="margin:8px 0;line-height:1.6;color:#222;">${inlineMarkdown(line)}</p>`
+    return -1;
   }
-  return html || "<p style='color:#666;'>No content</p>"
+
+  for (let i = 0; i < lines.length; i++) {
+    let line = lines[i].trim();
+    if (!line) continue;
+
+    const h = line.match(/^(#{1,3})\s+(.*)$/);
+    if (h) {
+      const level = Math.min(3, h[1].length);
+      html += `<h${level} style="margin:10px 0 6px;font-weight:700;color:#111;">${inlineMarkdown(
+        h[2]
+      )}</h${level}>`;
+      continue;
+    }
+
+    const isBullet = /^[-*•]\s+/.test(line);
+    const nextIdx = nextNonEmptyIndex(i);
+    const nextIsBullet =
+      nextIdx !== -1 && /^[-*•]\s+/.test(lines[nextIdx].trim());
+
+    if (!isBullet && nextIsBullet) {
+      html += `<p style="margin:10px 0 6px;font-weight:700;color:#111;">${inlineMarkdown(
+        line
+      )}</p>`;
+      continue;
+    }
+
+    if (isBullet) {
+      const content = line.replace(/^[-*•]\s+/, "");
+      html += `<p style="margin:4px 0 4px 16px;line-height:1.5;color:#222;">• ${inlineMarkdown(
+        content
+      )}</p>`;
+      continue;
+    }
+
+    html += `<p style="margin:8px 0;line-height:1.6;color:#222;">${inlineMarkdown(
+      line
+    )}</p>`;
+  }
+
+  return html || "<p style='color:#666;'>No content</p>";
 }
 
 function createModal(id, title) {
