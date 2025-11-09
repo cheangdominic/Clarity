@@ -1,7 +1,6 @@
 let popupTimeout;
 let documentClickListener = null;
 let lastClipboardText = "";
-let lastCreatedHighlight = null;
 let hoverHideTimeout = null; // for hover-based menu hide
 let menuHovering = false; // track mouse over mini-menu
 
@@ -288,7 +287,7 @@ function showHighlightPopup() {
         body: JSON.stringify({ text: selectedText }),
       });
       const data = await res.json();
-      content.innerHTML = markdownToHtml(data.notes) || "No notes available.";
+      content.innerHTML = data.notes || "No notes available.";
     } catch {
       content.innerHTML = `<p style="color:#a00;">Failed to fetch notes.</p>`;
     }
@@ -458,9 +457,11 @@ function showHighlightPopup() {
       }
     });
   });
+
   popup.querySelector("#viewHistoryBtn").addEventListener("click", (e) => {
     e.stopPropagation();
     e.preventDefault();
+
     showClipboardHistory(popup);
   });
 
@@ -473,9 +474,14 @@ function showHighlightPopup() {
 
     const range = selection.getRangeAt(0).cloneRange();
     const rectSel = range.getBoundingClientRect();
-    const rectPopup = popup.getBoundingClientRect();
+    const popupRect = popup.getBoundingClientRect();
+    const historyCard = document.getElementById("clipboardHistoryCard");
 
-    showHighlightColorPicker(rectSel, rectPopup, (styleSpec) => {
+    if (historyCard) {
+      historyCard.remove();
+    }
+
+    showHighlightColorPicker(rectSel, popupRect, (styleSpec) => {
       try {
         const extracted = range.extractContents();
         const highlight = document.createElement("span");
@@ -485,10 +491,6 @@ function showHighlightPopup() {
         highlight.style.borderRadius = "2px";
         highlight.style.padding = "0 2px";
         highlight.className = "clarity-highlight";
-        // assign a stable id for later lookups from the Tags panel
-        if (!highlight.dataset.clarityId) {
-          highlight.dataset.clarityId = generateHighlightId();
-        }
         highlight.appendChild(extracted);
         range.insertNode(highlight);
         selection.removeAllRanges();
@@ -498,7 +500,6 @@ function showHighlightPopup() {
           popup.remove();
         } catch (_) {}
 
-        const historyCard = document.getElementById("clipboardHistoryCard");
         if (historyCard) {
           historyCard.remove();
         }
@@ -539,14 +540,20 @@ function showHighlightPopup() {
 function showClipboardHistory(popup) {
   const oldCard = document.getElementById("clipboardHistoryCard");
   if (oldCard) oldCard.remove();
+
+  const highlightsPanels = document.querySelectorAll("#highlightsPanel");
+  highlightsPanels.forEach((panel) => {
+    panel.remove();
+  });
+
   chrome.storage.local.get(["clipboard"], (result) => {
     const history = result.clipboard || [];
     const card = document.createElement("div");
     card.id = "clipboardHistoryCard";
     Object.assign(card.style, {
       position: "absolute",
-      background: "white",
-      color: "black",
+      background: "black",
+      color: "white",
       padding: "12px",
       borderRadius: "8px",
       boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
@@ -574,15 +581,19 @@ function showClipboardHistory(popup) {
       `;
     } else {
       card.innerHTML = `
-        <div style="font-weight:bold;margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid #eee;display:flex;justify-content:space-between;align-items:center;">
+        <div style="font-weight:bold;margin-bottom:12px;padding:8px;border-bottom:1px solid #eee;display:flex;justify-content:space-between;align-items:center;">
           <span>📋 Clipboard History</span>
-          <button id="clearHistoryBtn" style="background:#ff5252;color:white;border:none;padding:4px 8px;border-radius:4px;font-size:11px;cursor:pointer;">Clear</button>
+          <div style="display:flex;align-items:center;">
+            <button id="clearHistoryBtn" style="background:#ff5252;color:white;border:none;padding:4px 8px;border-radius:4px;font-size:11px;cursor:pointer;">Clear</button>
+            <button id="closeHistoryBtn" style="background:none;border:none;color:white;font-size:20px;cursor:pointer;line-height:1;padding:5px;margin-left:8px;">×</button>
+          </div>
         </div>
       `;
       const list = document.createElement("div");
       list.style.display = "flex";
       list.style.flexDirection = "column";
       list.style.gap = "8px";
+      list.style.color = "black";
       history.slice(0, 10).forEach((item) => {
         const itemDiv = document.createElement("div");
         Object.assign(itemDiv.style, {
@@ -640,6 +651,10 @@ function showClipboardHistory(popup) {
           });
         }
       });
+      card.querySelector("#closeHistoryBtn").addEventListener("click", (e) => {
+        e.stopPropagation();
+        card.remove();
+      });
     }
     document.body.appendChild(card);
     makeModalDraggable(card);
@@ -664,6 +679,11 @@ function tagToColor(tag) {
 function showHighlightsPanel(popup) {
   const existing = document.getElementById("highlightsPanel");
   if (existing) existing.remove();
+
+  const historyCard = document.getElementById("clipboardHistoryCard");
+  if (historyCard) {
+    historyCard.remove();
+  }
 
   chrome.storage.local.get(["highlights", "tagColors"], (result) => {
     const highlights = Array.isArray(result.highlights)
@@ -814,18 +834,25 @@ function showHighlightsPanel(popup) {
               const el = findHighlightByRecord(item);
               if (el) {
                 try {
-                  el.scrollIntoView({ behavior: "smooth", block: "center", inline: "nearest" });
+                  el.scrollIntoView({
+                    behavior: "smooth",
+                    block: "center",
+                    inline: "nearest",
+                  });
                 } catch (_) {
                   el.scrollIntoView();
                 }
                 flashHighlight(el);
                 showTagActionsMenu(el);
               } else {
-                // Try to recreate from text on same page
                 const recreated = findAndCreateHighlightByText(item.text, item);
                 if (recreated) {
                   try {
-                    recreated.scrollIntoView({ behavior: "smooth", block: "center", inline: "nearest" });
+                    recreated.scrollIntoView({
+                      behavior: "smooth",
+                      block: "center",
+                      inline: "nearest",
+                    });
                   } catch (_) {
                     recreated.scrollIntoView();
                   }
@@ -837,7 +864,9 @@ function showHighlightsPanel(popup) {
               }
             } else {
               try {
-                chrome.storage?.local?.set({ clarityPendingOpen: { ...item, ts: Date.now() } });
+                chrome.storage?.local?.set({
+                  clarityPendingOpen: { ...item, ts: Date.now() },
+                });
               } catch (_) {}
               window.open(item.url, "_blank");
             }
@@ -886,7 +915,16 @@ function showHighlightsPanel(popup) {
         if (confirm("Clear all tagged highlights?")) {
           chrome.storage.local.set({ highlights: [] }, () => {
             panel.remove();
-            popup.remove();
+
+            const historyCard = document.getElementById("clipboardHistoryCard");
+            if (historyCard) {
+              historyCard.remove();
+            }
+
+            const popup = document.getElementById("highlightPopup");
+            if (popup) {
+              popup.remove();
+            }
           });
         }
       });
@@ -918,7 +956,7 @@ function showTagActionsMenu(anchorEl) {
   menu.style.alignItems = "center";
   menu.style.gap = "8px";
 
-  const mkBtn = (label) => {
+  const makeBtn = (label) => {
     const btn = document.createElement("button");
     btn.textContent = label;
     btn.style.background = "none";
@@ -970,12 +1008,11 @@ function showTagActionsMenu(anchorEl) {
       }
     });
   } catch (_) {
-    // If extension context is invalid, fall back to neutral badges
     renderBadges({});
   }
 
-  const createTagBtn = mkBtn("Create Tag");
-  const openTagsBtn = mkBtn("Tags");
+  const createTagBtn = makeBtn("Create Tag");
+  const openTagsBtn = makeBtn("Tags");
 
   createTagBtn.addEventListener("click", () => {
     const existing = getHighlightTags(anchorEl);
@@ -1060,29 +1097,10 @@ function showTagActionsMenu(anchorEl) {
   });
 }
 
-function getHighlightFromSelection() {
-  const sel = window.getSelection();
-  if (!sel || !sel.rangeCount) return null;
-  const node = sel.getRangeAt(0).startContainer;
-  return findAncestorHighlight(node);
-}
-
-function findAncestorHighlight(node) {
-  let el = node && node.nodeType === 1 ? node : node && node.parentElement;
-  while (el) {
-    if (el.classList && el.classList.contains("clarity-highlight")) return el;
-    el = el.parentElement;
-  }
-  return null;
-}
-
-function getLastHighlightInDocument() {
-  const nodes = document.querySelectorAll(".clarity-highlight");
-  return nodes.length ? nodes[nodes.length - 1] : null;
-}
-
 function generateHighlightId() {
-  return `cl-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+  return `cl-${Date.now().toString(36)}-${Math.random()
+    .toString(36)
+    .slice(2, 8)}`;
 }
 
 function normalizeText(s) {
@@ -1093,15 +1111,22 @@ function findHighlightByRecord(item) {
   try {
     const wantId = item && item.id;
     if (wantId) {
-      const nodesById = Array.from(document.querySelectorAll(".clarity-highlight"));
-      const byId = nodesById.find((n) => n.dataset && n.dataset.clarityId === wantId);
+      const nodesById = Array.from(
+        document.querySelectorAll(".clarity-highlight")
+      );
+      const byId = nodesById.find(
+        (n) => n.dataset && n.dataset.clarityId === wantId
+      );
       if (byId) return byId;
     }
     const wantText = normalizeText(item && item.text);
-    const wantTag = (item && (item.tag || (Array.isArray(item.tags) && item.tags[0]))) || "";
+    const wantTag =
+      (item && (item.tag || (Array.isArray(item.tags) && item.tags[0]))) || "";
     const nodes = Array.from(document.querySelectorAll(".clarity-highlight"));
 
-    let candidates = nodes.filter((n) => normalizeText(n.textContent) === wantText);
+    let candidates = nodes.filter(
+      (n) => normalizeText(n.textContent) === wantText
+    );
     if (!candidates.length && wantText) {
       candidates = nodes.filter((n) => {
         const t = normalizeText(n.textContent);
@@ -1109,7 +1134,9 @@ function findHighlightByRecord(item) {
       });
     }
     if (wantTag) {
-      const filtered = candidates.filter((n) => getHighlightTags(n).includes(wantTag));
+      const filtered = candidates.filter((n) =>
+        getHighlightTags(n).includes(wantTag)
+      );
       if (filtered.length) candidates = filtered;
     }
     return candidates[0] || null;
@@ -1123,7 +1150,8 @@ function flashHighlight(el) {
   const prevBoxShadow = el.style.boxShadow;
   const prevTransition = el.style.transition;
   el.style.transition = "box-shadow 0.25s ease";
-  el.style.boxShadow = "0 0 0 3px rgba(255,165,0,0.9), 0 0 10px rgba(255,165,0,0.6)";
+  el.style.boxShadow =
+    "0 0 0 3px rgba(255,165,0,0.9), 0 0 10px rgba(255,165,0,0.6)";
   setTimeout(() => {
     el.style.boxShadow = prevBoxShadow || "";
     el.style.transition = prevTransition || "";
@@ -1213,7 +1241,6 @@ function showHighlightColorPicker(selectionRect, popupRect, onPick, onCancel) {
   picker.id = id;
   Object.assign(picker.style, {
     position: "absolute",
-    // initial placement: above the popup menu so we never overlap it
     top: `${window.scrollY + popupRect.top - 8}px`,
     left: `${window.scrollX + selectionRect.left + selectionRect.width / 2}px`,
     transform: "translateX(-50%) translateY(-100%)",
@@ -1286,6 +1313,7 @@ function showHighlightColorPicker(selectionRect, popupRect, onPick, onCancel) {
     try {
       picker.remove();
     } catch (_) {}
+
     onPick({ background: rgba, boxShadow: `inset 0 0 0 1px ${border}` });
   });
   customWrap.appendChild(input);
@@ -1293,7 +1321,6 @@ function showHighlightColorPicker(selectionRect, popupRect, onPick, onCancel) {
 
   document.body.appendChild(picker);
 
-  // Flip below the selected text if there isn't space above
   try {
     const pr = picker.getBoundingClientRect();
     if (pr.top < 8) {
