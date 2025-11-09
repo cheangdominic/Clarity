@@ -963,19 +963,13 @@ function showClipboardHistory(popup) {
       zIndex: "999999",
       fontFamily:
         "system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif",
-      position: "absolute",
+      position: "fixed",
       transition: "opacity 0.3s ease, transform 0.3s ease",
-      opacity: "1",
+      opacity: "0",
+      visibility: "hidden",
       overflow: "hidden",
       transformOrigin: "top center",
     });
-
-    const popupRect = popup.getBoundingClientRect();
-    card.style.top = `${window.scrollY + popupRect.top - 10}px`;
-    card.style.left = `${
-      window.scrollX + popupRect.left + popupRect.width / 2
-    }px`;
-    card.style.transform = "translateX(-50%) translateY(-100%) scale(1)";
     
 
     card.innerHTML = `
@@ -1072,10 +1066,32 @@ function showClipboardHistory(popup) {
 
     document.body.appendChild(card);
 
+    requestAnimationFrame(() => {
+      const margin = 12;
+      const popupRect = popup.getBoundingClientRect();
+      const cardRect = card.getBoundingClientRect();
+      const viewportWidth = window.innerWidth;
+      const viewportHeight = window.innerHeight;
+
+      let top = popupRect.top - margin - cardRect.height;
+      if (top < margin) top = popupRect.bottom + margin;
+
+      top = Math.max(margin, Math.min(top, viewportHeight - cardRect.height - margin));
+
+      let left = popupRect.left + popupRect.width / 2 - cardRect.width / 2;
+      left = Math.max(margin, Math.min(left, viewportWidth - cardRect.width - margin));
+
+      card.style.top = `${Math.round(top)}px`;
+      card.style.left = `${Math.round(left)}px`;
+      card.style.visibility = "visible";
+      card.style.opacity = "1";
+      card.style.transform = "none";
+    });
+
     const closeBtn = card.querySelector("#closeHistoryBtn");
     closeBtn.onclick = () => {
       card.style.opacity = "0";
-      card.style.transform = "translateX(-50%) translateY(-105%) scale(0.95)";
+      card.style.transform = "scale(0.95) translateY(-10px)";
       setTimeout(() => card.remove(), 200);
     };    
 
