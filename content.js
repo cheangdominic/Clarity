@@ -157,109 +157,76 @@ function wrapSelectionInSpan(range) {
 function makeModalDraggable(modal) {
   const header = modal.querySelector(".modal-header");
   if (!header) return;
+
   let offsetX = 0,
     offsetY = 0,
     isDragging = false;
-  header.style.cursor = "move";
 
-  header.addEventListener("mousedown", (e) => {
+  // Create a separate drag handle element that only covers the title area
+  const dragHandle = document.createElement("div");
+  dragHandle.style.cssText = `
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 120px; /* Leave space for the buttons on the right */
+    height: 100%;
+    cursor: move;
+    z-index: 1;
+  `;
+
+  // Insert the drag handle at the beginning of the header
+  header.style.position = "relative";
+  header.insertBefore(dragHandle, header.firstChild);
+
+  dragHandle.addEventListener("mousedown", (e) => {
     isDragging = true;
     const rect = modal.getBoundingClientRect();
     offsetX = e.clientX - rect.left;
     offsetY = e.clientY - rect.top;
     modal.style.transition = "none";
-    modal.style.transform = "none";
     document.body.style.userSelect = "none";
+    e.preventDefault();
+    e.stopPropagation();
   });
 
-  document.addEventListener("mousemove", (e) => {
+  const handleMouseMove = (e) => {
     if (!isDragging) return;
 
     let newX = e.clientX - offsetX;
     let newY = e.clientY - offsetY;
 
     const modalRect = modal.getBoundingClientRect();
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
 
-    newX = Math.max(0, Math.min(newX, window.innerWidth - modalRect.width));
-
-    newY = Math.max(0, Math.min(newY, window.innerHeight - modalRect.height));
+    // Keep modal within viewport bounds
+    newX = Math.max(10, Math.min(newX, viewportWidth - modalRect.width - 10));
+    newY = Math.max(10, Math.min(newY, viewportHeight - modalRect.height - 10));
 
     modal.style.left = `${newX}px`;
     modal.style.top = `${newY}px`;
-  });
+    modal.style.transform = "none";
+  };
 
-  function makeModalDraggable(modal) {
-    const header = modal.querySelector(".modal-header");
-    if (!header) return;
-    let offsetX = 0,
-      offsetY = 0,
+  const handleMouseUp = () => {
+    if (isDragging) {
       isDragging = false;
-    header.style.cursor = "move";
-
-    header.addEventListener("mousedown", (e) => {
-      isDragging = true;
-      const rect = modal.getBoundingClientRect();
-      offsetX = e.clientX - rect.left;
-      offsetY = e.clientY - rect.top;
-      modal.style.transition = "none";
-
-      // FIX for JUMPING: Immediately remove the positioning transform
-      modal.style.transform = "none";
-
-      document.body.style.userSelect = "none";
-    });
-
-    document.addEventListener("mousemove", (e) => {
-      if (!isDragging) return;
-
-      // Start position calculation
-      let newX = e.clientX - offsetX;
-      let newY = e.clientY - offsetY;
-
-      // Get the current dimensions of the modal (important inside mousemove)
-      const modalRect = modal.getBoundingClientRect();
-
-      // Allow slight dragging outside the viewport (e.g., 200px margin)
-      const margin = 200;
-
-      // Clamp X position (left edge at -margin, right edge at window width + margin - modal width)
-      newX = Math.max(
-        -margin,
-        Math.min(newX, window.innerWidth - modalRect.width + margin)
-      );
-
-      // Clamp Y position (top edge at -margin, bottom edge at window height + margin - modal height)
-      // We'll use 0 for the top edge for a slightly more controlled feel, but allow some margin at the bottom
-      newY = Math.max(
-        0,
-        Math.min(newY, window.innerHeight - modalRect.height + margin)
-      );
-
-      // Apply clamped position
-      modal.style.left = `${newX}px`;
-      modal.style.top = `${newY}px`;
-    });
-
-    document.addEventListener("mouseup", () => {
-      isDragging = false;
-      // Restore transition on mouseup
       modal.style.transition = "opacity 0.2s ease, transform 0.2s ease";
       document.body.style.userSelect = "auto";
-    });
-  }
-  document.addEventListener("mouseup", () => {
-    isDragging = false;
-    modal.style.transition = "opacity 0.2s ease, transform 0.2s ease";
-    document.body.style.userSelect = "auto";
-  });
+    }
+  };
 
-  modal.addEventListener("mouseenter", () => {
-    if (modal._highlight) modal._highlight.style.backgroundColor = "#fbf719";
-  });
+  document.addEventListener("mousemove", handleMouseMove);
+  document.addEventListener("mouseup", handleMouseUp);
+  document.addEventListener("mouseleave", handleMouseUp);
 
-  modal.addEventListener("mouseleave", () => {
-    if (modal._highlight) modal._highlight.style.backgroundColor = "";
-  });
+  const originalRemove = modal.remove;
+  modal.remove = function () {
+    document.removeEventListener("mousemove", handleMouseMove);
+    document.removeEventListener("mouseup", handleMouseUp);
+    document.removeEventListener("mouseleave", handleMouseUp);
+    originalRemove.call(this);
+  };
 }
 
 function createModal(id, title) {
@@ -291,15 +258,22 @@ function createModal(id, title) {
    <div class="modal-content" style="padding:14px 16px;max-height:220px;overflow:auto;font-size:14px;line-height:1.45;color:#333;"></div>
   `;
   document.body.appendChild(modal);
+
   modal.querySelector(".close-btn").onclick = () => {
     modal.style.display = "none";
-    if (modal._highlight) {
-      const span = modal._highlight;
-      const parent = span.parentNode;
-      while (span.firstChild) parent.insertBefore(span.firstChild, span);
-      parent.removeChild(span);
-    }
   };
+
+  modal.addEventListener("mouseenter", () => {
+    if (modal._highlight) {
+      modal._highlight.style.backgroundColor = "hsla(52, 95%, 62%, 0.35)";
+    }
+  });
+
+  modal.addEventListener("mouseleave", () => {
+    if (modal._highlight) {
+      modal._highlight.style.backgroundColor = "";
+    }
+  });
 
   const content = modal.querySelector(".modal-content");
   modal.querySelector(".collapse-btn").onclick = (e) => {
@@ -391,32 +365,16 @@ function showHighlightPopup() {
     modal.style.display = "block";
     const rect = popup.getBoundingClientRect();
 
-    // 1. Set position to fixed (already in createModal, but essential)
     modal.style.position = "absolute";
 
-    // 2. Position ABOVE the toolbar (using its viewport position)
-    // The original code used rect.top - 12 (to be slightly above the top of the toolbar)
-    // AND translateY(-100%) (to push it up by its own full height).
-    // We REMOVE the translateY(-100%) and calculate the final top position directly.
-
-    // Calculate the Y position to place the *bottom* of the modal above the toolbar's top.
-    // NOTE: Because we don't know the height yet, we must rely on the translateY(-100%)
-    // or estimate the height. Using translateY(-100%) is standard for this pattern,
-    // but MUST be cleared by the dragging code.
-
-    // --- RESTORE ORIGINAL POSITIONING (AS IT'S A COMMON PATTERN) ---
-    // The key is ensuring the DRAGGING function immediately resets 'transform'.
     modal.style.top = `${rect.top - 12}px`;
     modal.style.left = `${rect.left + rect.width / 2}px`;
     modal.style.transform = "translateX(-50%) translateY(-100%)";
-    // --- END ORIGINAL POSITIONING ---
 
-    // 3. Set opacity and Z-Index
     modal.style.opacity = "0";
-    modal.style.zIndex = "1000000"; // Keep the high z-index
+    modal.style.zIndex = "1000000";
     requestAnimationFrame(() => (modal.style.opacity = "1"));
 
-    // ... rest of the fetch logic ...
     try {
       const res = await fetch("http://localhost:5000/summarize", {
         method: "POST",
@@ -437,29 +395,14 @@ function showHighlightPopup() {
     showLoadingSpinner(content);
     modal.style.display = "block";
     const rect = popup.getBoundingClientRect();
-    // 1. Set position to fixed (already in createModal, but essential)
     modal.style.position = "absolute";
 
-    // 2. Position ABOVE the toolbar (using its viewport position)
-    // The original code used rect.top - 12 (to be slightly above the top of the toolbar)
-    // AND translateY(-100%) (to push it up by its own full height).
-    // We REMOVE the translateY(-100%) and calculate the final top position directly.
-
-    // Calculate the Y position to place the *bottom* of the modal above the toolbar's top.
-    // NOTE: Because we don't know the height yet, we must rely on the translateY(-100%)
-    // or estimate the height. Using translateY(-100%) is standard for this pattern,
-    // but MUST be cleared by the dragging code.
-
-    // --- RESTORE ORIGINAL POSITIONING (AS IT'S A COMMON PATTERN) ---
-    // The key is ensuring the DRAGGING function immediately resets 'transform'.
     modal.style.top = `${rect.top - 12}px`;
     modal.style.left = `${rect.left + rect.width / 2}px`;
     modal.style.transform = "translateX(-50%) translateY(-100%)";
-    // --- END ORIGINAL POSITIONING ---
 
-    // 3. Set opacity and Z-Index
     modal.style.opacity = "0";
-    modal.style.zIndex = "1000000"; // Keep the high z-index
+    modal.style.zIndex = "1000000";
     requestAnimationFrame(() => (modal.style.opacity = "1"));
     try {
       const res = await fetch("http://localhost:5000/notes", {
@@ -475,11 +418,10 @@ function showHighlightPopup() {
   };
 
   popup.querySelector("#translateBtn").addEventListener("click", async () => {
-    // SIMPLE TOGGLE - Check if modal exists FIRST
     const existingBox = document.getElementById("centerBox");
     if (existingBox) {
       existingBox.remove();
-      return; // Exit early if we closed the modal
+      return;
     }
 
     const selection = window.getSelection();
@@ -644,6 +586,7 @@ function showHighlightPopup() {
               top: `${e.pageY + 10}px`,
             });
           });
+
           span.addEventListener("mouseleave", () => {
             span.style.backgroundColor = "rgba(255,255,0,0.2)";
             tooltip.style.visibility = "hidden";
@@ -688,7 +631,6 @@ function showHighlightPopup() {
 
     const colorPicker = document.getElementById("highlightColorPicker");
 
-    // If color picker is already open, close it
     if (colorPicker) {
       colorPicker.remove();
       return;
@@ -905,14 +847,11 @@ function showClipboardHistory(popup) {
         e.stopPropagation();
         clearBtn.disabled = true;
         clearBtn.textContent = "Clearing…";
-        // Persist clear first
         chrome.storage.local.set({ clipboard: [] }, () => {
-          // Animate each row out, then show empty state; keep panel open
           const rows = Array.from(list.children);
           rows.forEach((row, idx) => {
             row.style.transition =
               "opacity 180ms ease, transform 180ms ease, height 180ms ease, margin 180ms ease, padding 180ms ease";
-            // Lock current height to allow smooth collapse
             const h = row.getBoundingClientRect().height;
             row.style.height = h + "px";
             requestAnimationFrame(() => {
@@ -928,7 +867,6 @@ function showClipboardHistory(popup) {
                 row.remove();
               } catch (_) {}
               if (idx === rows.length - 1) {
-                // Last one done → show empty state and keep panel open
                 list.innerHTML = "";
                 const empty = document.createElement("div");
                 empty.style.color = "#666";
@@ -937,7 +875,7 @@ function showClipboardHistory(popup) {
                 empty.innerHTML = `<div style=\"font-size:24px;margin-bottom:8px;\">📋</div><div style=\"font-weight:bold;margin-bottom:4px;\">Clipboard History</div><div style=\"font-size:12px;\">No history yet. Copy some text!</div>`;
                 list.appendChild(empty);
                 clearBtn.textContent = "Clear";
-                clearBtn.disabled = true; // nothing to clear now
+                clearBtn.disabled = true;
               }
             }, 190 + idx * 20);
           });
@@ -949,7 +887,6 @@ function showClipboardHistory(popup) {
       });
     }
     document.body.appendChild(card);
-    // Position correction: flip below if near top and clamp horizontally
     try {
       const pr = card.getBoundingClientRect();
       const threshold = 8;
