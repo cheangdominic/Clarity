@@ -789,7 +789,7 @@ function showClipboardHistory(popup) {
     card.id = "clipboardHistoryCard";
     card.classList.add("clarity-panel");
     Object.assign(card.style, {
-      position: "absolute",
+      position: "fixed",
       zIndex: "1000000",
       minWidth: "320px",
       maxWidth: "460px",
@@ -797,12 +797,8 @@ function showClipboardHistory(popup) {
       overflowY: "auto",
       padding: "12px",
     });
-    const popupRect = popup.getBoundingClientRect();
-    card.style.top = `${window.scrollY + popupRect.top - 10}px`;
-    card.style.left = `${
-      window.scrollX + popupRect.left + popupRect.width / 2
-    }px`;
-    card.style.transform = "translateX(-50%) translateY(-100%)";
+    // Position safely near the toolbar popup, clamped to viewport
+    // Exact placement is handled after insertion by positionModalNearPopup
     if (history.length === 0) {
       card.innerHTML = `
         <div style="text-align:center;padding:20px;color:#666;">
@@ -931,18 +927,7 @@ function showClipboardHistory(popup) {
     }
     document.body.appendChild(card);
     try {
-      const pr = card.getBoundingClientRect();
-      const threshold = 8;
-      if (pr.top < threshold) {
-        card.style.top = `${window.scrollY + popupRect.bottom + 10}px`;
-        card.style.transform = "translateX(-50%) translateY(0)";
-      }
-      const vw = document.documentElement.clientWidth;
-      const leftPx = Math.min(
-        Math.max(window.scrollX + 12, window.scrollX + popupRect.left),
-        window.scrollX + vw - 12
-      );
-      card.style.left = `${leftPx}px`;
+      positionModalNearPopup(card, popup);
     } catch (_) {}
   });
 }
