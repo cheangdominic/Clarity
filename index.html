@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Clarity Settings — Toggle Debug</title>
+<style>
+  :root {
+    --bg: #f9f9f9;
+    --fg: #111;
+    --accent: #333;
+    --accent-active: #0b84ff;
+  }
+  body {
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+    margin: 28px;
+    background: var(--bg);
+    color: var(--fg);
+  }
+  h1 { text-align: center; margin-bottom: 18px; font-size: 20px; }
+  .row { display:flex; align-items:center; gap:16px; }
+  .switch {
+    --w: 64px;
+    --h: 32px;
+    position: relative;
+    width: var(--w);
+    height: var(--h);
+    background: #ddd;
+    border-radius: 999px;
+    box-shadow: inset 0 1px 2px rgba(0,0,0,0.08);
+    cursor: pointer;
+    transition: background 0.18s ease;
+  }
+  .switch[data-checked="true"] { background: var(--accent-active); }
+  .switch input { display: none; }
+  .knob {
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: calc(var(--h) - 6px);
+    height: calc(var(--h) - 6px);
+    background: white;
+    border-radius: 50%;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+    transition: transform 0.4s cubic-bezier(.2,.9,.3,1);
+    transform: translateX(0);
+  }
+  .switch[data-checked="true"] .knob { transform: translateX(calc(var(--w) - var(--h))); }
+  .label { font-weight: 600; font-size: 14px; margin-right:-24px }
+  .sub { color: #555; font-size: 13px; }
+  .help { margin-top: 18px; color:#666; font-size:13px; text-align: center }
+
+  #statusText {
+  color: #555;
+  font-size: 13px;
+  width: 70px;
+  text-align: left;
+}
+
+</style>
+</head>
+<body>
+  <h1>Clarity Extension</h1>
+
+  <div class="row">
+    <div id="switch" class="switch" role="switch" aria-checked="true" data-checked="false" title="Toggle extension">
+      <input id="extensionToggle" type="checkbox" />
+      <div class="knob" aria-hidden="true"></div>
+    </div>
+    <div id="statusText" class="sub">Loading…</div>
+  </div>
+
+  <div class="help">
+    Disable or enable the Clarity extension by toggling the slider.
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
