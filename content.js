@@ -16,6 +16,82 @@ setInterval(async () => {
   } catch {}
 }, 500);
 
+function inlineMarkdown(s) {
+  if (!s || typeof s !== "string") return "";
+  s = s.replace(/`([^`]+)`/g, (_, p1) => `<code>${p1}</code>`);
+  s = s.replace(/\*\*([^*]+)\*\*/g, (_, p1) => `<strong>${p1}</strong>`);
+  s = s.replace(/\*([^*]+)\*/g, (_, p1) => `<em>${p1}</em>`);
+  s = s.replace(
+    /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g,
+    (_, p1, p2) =>
+      `<a href="${p2}" target="_blank" rel="noopener noreferrer">${p1}</a>`
+  );
+
+  return s;
+}
+
+function escapeHtml(text) {
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+function markdownToHtml(md) {
+  md = escapeHtml(md);
+  const lines = md.split(/\r?\n/);
+  let html = "";
+
+  function nextNonEmptyIndex(i) {
+    for (let j = i + 1; j < lines.length; j++) {
+      if (lines[j].trim().length > 0) return j;
+    }
+    return -1;
+  }
+
+  for (let i = 0; i < lines.length; i++) {
+    let line = lines[i].trim();
+    if (!line) continue;
+
+    const h = line.match(/^(#{1,3})\s+(.*)$/);
+    if (h) {
+      const level = Math.min(3, h[1].length);
+      html += `<h${level} style="margin:10px 0 6px;font-weight:700;color:#111;">${inlineMarkdown(
+        h[2]
+      )}</h${level}>`;
+      continue;
+    }
+
+    const isBullet = /^[-*•]\s+/.test(line);
+    const nextIdx = nextNonEmptyIndex(i);
+    const nextIsBullet =
+      nextIdx !== -1 && /^[-*•]\s+/.test(lines[nextIdx].trim());
+
+    if (!isBullet && nextIsBullet) {
+      html += `<p style="margin:10px 0 6px;font-weight:700;color:#111;">${inlineMarkdown(
+        line
+      )}</p>`;
+      continue;
+    }
+
+    if (isBullet) {
+      const content = line.replace(/^[-*•]\s+/, "");
+      html += `<p style="margin:4px 0 4px 16px;line-height:1.5;color:#222;">• ${inlineMarkdown(
+        content
+      )}</p>`;
+      continue;
+    }
+
+    html += `<p style="margin:8px 0;line-height:1.6;color:#222;">${inlineMarkdown(
+      line
+    )}</p>`;
+  }
+
+  return html || "<p style='color:#666;'>No content</p>";
+}
+
 function showLoadingSpinner(container) {
   container.innerHTML = `
     <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100px;color:#666;">
@@ -50,7 +126,6 @@ function makeModalDraggable(modal) {
 
   header.addEventListener("mousedown", (e) => {
     isDragging = true;
-    modal._highlight.style.backgroundColor = "#fbf719";
     const rect = modal.getBoundingClientRect();
     offsetX = e.clientX - rect.left;
     offsetY = e.clientY - rect.top;
@@ -60,21 +135,22 @@ function makeModalDraggable(modal) {
 
   document.addEventListener("mousemove", (e) => {
     if (!isDragging) return;
-    modal._highlight.style.backgroundColor = "#fbf719";
     modal.style.left = `${e.clientX - offsetX}px`;
     modal.style.top = `${e.clientY - offsetY}px`;
     modal.style.transform = "none";
   });
 
   document.addEventListener("mouseup", () => {
-    if (isDragging && modal._highlight)
-      modal._highlight.style.backgroundColor = "";
     isDragging = false;
     modal.style.transition = "opacity 0.2s ease, transform 0.2s ease";
     document.body.style.userSelect = "auto";
   });
 
-  header.addEventListener("mouseleave", () => {
+  modal.addEventListener("mouseenter", () => {
+    if (modal._highlight) modal._highlight.style.backgroundColor = "#fbf719";
+  });
+
+  modal.addEventListener("mouseleave", () => {
     if (modal._highlight) modal._highlight.style.backgroundColor = "";
   });
 }
@@ -178,6 +254,7 @@ function showHighlightPopup() {
     modal.style.left = `${window.scrollX + rect.left + rect.width / 2}px`;
     modal.style.transform = "translateX(-50%) translateY(-100%)";
     modal.style.opacity = "0";
+    modal.style.zIndex = "10000";
     requestAnimationFrame(() => (modal.style.opacity = "1"));
     try {
       const res = await fetch("http://localhost:5000/summarize", {
@@ -217,8 +294,147 @@ function showHighlightPopup() {
     }
   };
 
-  popup.querySelector("#translateBtn").addEventListener("click", () => {
-    alert("Translate: " + selectedText);
+  popup.querySelector("#translateBtn").addEventListener("click", async () => {
+    const selection = window.getSelection();
+    const selectedText = selection.toString().trim();
+    if (!selectedText) return;
+
+    const oldBox = document.getElementById("centerBox");
+    if (oldBox) oldBox.remove();
+
+    const box = document.createElement("div");
+    box.id = "centerBox";
+    Object.assign(box.style, {
+      position: "fixed",
+      top: "50%",
+      left: "50%",
+      transform: "translate(-50%, -50%)",
+      background: "#333",
+      color: "#fff",
+      padding: "20px 30px",
+      borderRadius: "12px",
+      boxShadow: "0 4px 10px rgba(0,0,0,0.3)",
+      zIndex: "1000000",
+      fontSize: "16px",
+      textAlign: "center",
+    });
+
+    const title = document.createElement("div");
+    title.innerText = "Select language:";
+    title.style.marginBottom = "10px";
+    box.appendChild(title);
+
+    const select = document.createElement("select");
+    Object.assign(select.style, {
+      padding: "6px",
+      borderRadius: "6px",
+      border: "none",
+      marginBottom: "10px",
+      fontSize: "14px",
+      cursor: "pointer",
+    });
+
+    const languages = {
+      en: "English",
+      es: "Spanish",
+      fr: "French",
+      de: "German",
+      it: "Italian",
+      pt: "Portuguese",
+      ja: "Japanese",
+      ko: "Korean",
+      zh: "Chinese",
+      ar: "Arabic",
+    };
+
+    for (const [code, name] of Object.entries(languages)) {
+      const opt = document.createElement("option");
+      opt.value = code;
+      opt.textContent = name;
+      select.appendChild(opt);
+    }
+    box.appendChild(select);
+
+    const translateBtn = document.createElement("button");
+    translateBtn.innerText = "Translate";
+    Object.assign(translateBtn.style, {
+      marginTop: "10px",
+      padding: "6px 12px",
+      border: "none",
+      borderRadius: "5px",
+      background: "#555",
+      color: "#fff",
+      cursor: "pointer",
+    });
+    box.appendChild(document.createElement("br"));
+    box.appendChild(translateBtn);
+
+    const output = document.createElement("div");
+    output.style.marginTop = "15px";
+    output.style.fontSize = "15px";
+    output.innerText = "";
+    box.appendChild(output);
+
+    const closeBtn = document.createElement("button");
+    closeBtn.innerText = "Close";
+    Object.assign(closeBtn.style, {
+      marginTop: "10px",
+      padding: "5px 10px",
+      border: "none",
+      borderRadius: "5px",
+      cursor: "pointer",
+      background: "#777",
+      color: "#fff",
+    });
+    closeBtn.addEventListener("click", () => box.remove());
+    box.appendChild(document.createElement("br"));
+    box.appendChild(closeBtn);
+
+    document.body.appendChild(box);
+
+    translateBtn.addEventListener("click", async () => {
+      const targetLang = select.value;
+      output.innerText = "Translating...";
+      try {
+        const res = await fetch("http://localhost:5000/translate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            text: selectedText,
+            target: targetLang,
+          }),
+        });
+        if (!res.ok) throw new Error("Translation request failed");
+        const data = await res.json();
+        const translated = data.translatedText || "Translation failed.";
+
+        if (selection.rangeCount > 0) {
+          const range = selection.getRangeAt(0);
+          range.deleteContents();
+
+          const span = document.createElement("span");
+          span.textContent = translated;
+          span.style.backgroundColor = "rgba(255,255,0,0.2)";
+          span.style.transition = "background-color 0.3s";
+          span.style.cursor = "help";
+          span.title = `Original: ${selectedText}`;
+
+          span.addEventListener("mouseenter", () => {
+            span.style.backgroundColor = "rgba(255,255,0,0.4)";
+          });
+          span.addEventListener("mouseleave", () => {
+            span.style.backgroundColor = "rgba(255,255,0,0.2)";
+          });
+
+          range.insertNode(span);
+        }
+
+        box.remove();
+      } catch (err) {
+        console.error("Translation error:", err);
+        output.innerText = "Error fetching translation.";
+      }
+    });
   });
 
   popup.querySelector("#viewHistoryBtn").addEventListener("click", (e) => {
@@ -236,18 +452,22 @@ function showHighlightPopup() {
 
     const range = selection.getRangeAt(0).cloneRange();
     const rectSel = range.getBoundingClientRect();
+    const rectPopup = popup.getBoundingClientRect();
 
-    showHighlightColorPicker(rectSel, (styleSpec) => {
+    showHighlightColorPicker(rectSel, rectPopup, (styleSpec) => {
       try {
         const extracted = range.extractContents();
         const highlight = document.createElement("span");
-        // apply chosen color style
         highlight.style.backgroundColor = styleSpec.background;
         if (styleSpec.boxShadow)
           highlight.style.boxShadow = styleSpec.boxShadow;
         highlight.style.borderRadius = "2px";
         highlight.style.padding = "0 2px";
         highlight.className = "clarity-highlight";
+        // assign a stable id for later lookups from the Tags panel
+        if (!highlight.dataset.clarityId) {
+          highlight.dataset.clarityId = generateHighlightId();
+        }
         highlight.appendChild(extracted);
         range.insertNode(highlight);
         selection.removeAllRanges();
@@ -256,6 +476,12 @@ function showHighlightPopup() {
         try {
           popup.remove();
         } catch (_) {}
+
+        const historyCard = document.getElementById("clipboardHistoryCard");
+        if (historyCard) {
+          historyCard.remove();
+        }
+
         if (documentClickListener) {
           document.removeEventListener("click", documentClickListener);
           documentClickListener = null;
@@ -564,20 +790,62 @@ function showHighlightsPanel(popup) {
           openBtn.textContent = "Open";
           openBtn.style.fontSize = "11px";
           openBtn.style.border = "1px solid #ddd";
-          openBtn.style.background = "#fff";
+          openBtn.style.background = "#f7f7f7";
+          openBtn.style.color = "#333";
           openBtn.style.borderRadius = "6px";
           openBtn.style.padding = "4px 8px";
           openBtn.style.cursor = "pointer";
           openBtn.addEventListener("click", (e) => {
             e.stopPropagation();
-            window.open(item.url, "_blank");
+            if ((item.url || "") === location.href) {
+              const el = findHighlightByRecord(item);
+              if (el) {
+                try {
+                  el.scrollIntoView({
+                    behavior: "smooth",
+                    block: "center",
+                    inline: "nearest",
+                  });
+                } catch (_) {
+                  el.scrollIntoView();
+                }
+                flashHighlight(el);
+                showTagActionsMenu(el);
+              } else {
+                // Try to recreate from text on same page
+                const recreated = findAndCreateHighlightByText(item.text, item);
+                if (recreated) {
+                  try {
+                    recreated.scrollIntoView({
+                      behavior: "smooth",
+                      block: "center",
+                      inline: "nearest",
+                    });
+                  } catch (_) {
+                    recreated.scrollIntoView();
+                  }
+                  flashHighlight(recreated);
+                  showTagActionsMenu(recreated);
+                } else {
+                  window.focus();
+                }
+              }
+            } else {
+              try {
+                chrome.storage?.local?.set({
+                  clarityPendingOpen: { ...item, ts: Date.now() },
+                });
+              } catch (_) {}
+              window.open(item.url, "_blank");
+            }
           });
 
           const copyBtn = document.createElement("button");
           copyBtn.textContent = "Copy";
           copyBtn.style.fontSize = "11px";
           copyBtn.style.border = "1px solid #ddd";
-          copyBtn.style.background = "#fff";
+          copyBtn.style.background = "#f7f7f7";
+          copyBtn.style.color = "#333";
           copyBtn.style.borderRadius = "6px";
           copyBtn.style.padding = "4px 8px";
           copyBtn.style.cursor = "pointer";
@@ -690,9 +958,18 @@ function showTagActionsMenu(anchorEl) {
     });
   };
 
-  chrome.storage.local.get(["tagColors"], (res) => {
-    renderBadges(res.tagColors || {});
-  });
+  try {
+    chrome.storage?.local?.get(["tagColors"], (res) => {
+      try {
+        renderBadges((res && res.tagColors) || {});
+      } catch (_) {
+        renderBadges({});
+      }
+    });
+  } catch (_) {
+    // If extension context is invalid, fall back to neutral badges
+    renderBadges({});
+  }
 
   const createTagBtn = makeBtn("Create Tag");
   const openTagsBtn = makeBtn("Tags");
@@ -708,7 +985,12 @@ function showTagActionsMenu(anchorEl) {
     const uniqueTags = Array.from(new Set(tags));
     setHighlightTags(anchorEl, uniqueTags);
 
+    if (!anchorEl.dataset.clarityId) {
+      anchorEl.dataset.clarityId = generateHighlightId();
+    }
+
     const record = {
+      id: anchorEl.dataset.clarityId || "",
       tags: uniqueTags,
       tag: uniqueTags[0] || "",
       text: anchorEl.textContent || "",
@@ -796,6 +1078,67 @@ function showTagActionsMenu(anchorEl) {
 //   return nodes.length ? nodes[nodes.length - 1] : null;
 // }
 
+function generateHighlightId() {
+  return `cl-${Date.now().toString(36)}-${Math.random()
+    .toString(36)
+    .slice(2, 8)}`;
+}
+
+function normalizeText(s) {
+  return (s || "").replace(/\s+/g, " ").trim();
+}
+
+function findHighlightByRecord(item) {
+  try {
+    const wantId = item && item.id;
+    if (wantId) {
+      const nodesById = Array.from(
+        document.querySelectorAll(".clarity-highlight")
+      );
+      const byId = nodesById.find(
+        (n) => n.dataset && n.dataset.clarityId === wantId
+      );
+      if (byId) return byId;
+    }
+    const wantText = normalizeText(item && item.text);
+    const wantTag =
+      (item && (item.tag || (Array.isArray(item.tags) && item.tags[0]))) || "";
+    const nodes = Array.from(document.querySelectorAll(".clarity-highlight"));
+
+    let candidates = nodes.filter(
+      (n) => normalizeText(n.textContent) === wantText
+    );
+    if (!candidates.length && wantText) {
+      candidates = nodes.filter((n) => {
+        const t = normalizeText(n.textContent);
+        return t.includes(wantText) || wantText.includes(t);
+      });
+    }
+    if (wantTag) {
+      const filtered = candidates.filter((n) =>
+        getHighlightTags(n).includes(wantTag)
+      );
+      if (filtered.length) candidates = filtered;
+    }
+    return candidates[0] || null;
+  } catch (_) {
+    return null;
+  }
+}
+
+function flashHighlight(el) {
+  if (!el) return;
+  const prevBoxShadow = el.style.boxShadow;
+  const prevTransition = el.style.transition;
+  el.style.transition = "box-shadow 0.25s ease";
+  el.style.boxShadow =
+    "0 0 0 3px rgba(255,165,0,0.9), 0 0 10px rgba(255,165,0,0.6)";
+  setTimeout(() => {
+    el.style.boxShadow = prevBoxShadow || "";
+    el.style.transition = prevTransition || "";
+  }, 1200);
+}
+
 function scheduleHoverMenuHide(anchorEl) {
   if (hoverHideTimeout) clearTimeout(hoverHideTimeout);
   hoverHideTimeout = setTimeout(() => {
@@ -818,15 +1161,16 @@ function scheduleHoverMenuHide(anchorEl) {
   }, 180);
 }
 
-function showHighlightColorPicker(rect, onPick, onCancel) {
+function showHighlightColorPicker(selectionRect, popupRect, onPick, onCancel) {
   const id = "highlightColorPicker";
   document.getElementById(id)?.remove();
   const picker = document.createElement("div");
   picker.id = id;
   Object.assign(picker.style, {
     position: "absolute",
-    top: `${window.scrollY + rect.top - 8}px`,
-    left: `${window.scrollX + rect.left + rect.width / 2}px`,
+    // initial placement: above the popup menu so we never overlap it
+    top: `${window.scrollY + popupRect.top - 8}px`,
+    left: `${window.scrollX + selectionRect.left + selectionRect.width / 2}px`,
     transform: "translateX(-50%) translateY(-100%)",
     background: "#111",
     color: "#fff",
@@ -904,6 +1248,15 @@ function showHighlightColorPicker(rect, onPick, onCancel) {
 
   document.body.appendChild(picker);
 
+  // Flip below the selected text if there isn't space above
+  try {
+    const pr = picker.getBoundingClientRect();
+    if (pr.top < 8) {
+      picker.style.top = `${window.scrollY + selectionRect.bottom + 8}px`;
+      picker.style.transform = "translateX(-50%) translateY(0)";
+    }
+  } catch (_) {}
+
   const close = (e) => {
     if (!picker.contains(e.target)) {
       try {
@@ -939,6 +1292,9 @@ function setHighlightTags(el, tags) {
     new Set((tags || []).map((t) => t.trim()).filter(Boolean))
   );
   if (!el.dataset) el.dataset = {};
+  if (!el.dataset.clarityId) {
+    el.dataset.clarityId = generateHighlightId();
+  }
   el.dataset.tags = unique.join(",");
   el.title = unique.length ? `Tags: ${unique.join(", ")}` : "";
   el.classList.add("clarity-highlight");
