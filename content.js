@@ -399,9 +399,18 @@ function showHighlightPopup() {
   };
 
   popup.querySelectorAll("button").forEach((btn) => {
-    btn.onmouseenter = () => (btn.style.background = "#555");
-    btn.onmouseleave = () => (btn.style.background = "none");
-  });  
+    btn.addEventListener("mouseenter", () => (btn.style.background = "#555"));
+    btn.addEventListener("mouseleave", () => (btn.style.background = "none"));
+
+    btn.addEventListener("click", () => {
+      btn.style.transform = "scale(0.95)";
+      btn.style.transition = "transform 0.1s ease";
+      setTimeout(() => {
+        btn.style.transform = "scale(1)";
+      }, 100);
+    });
+  });
+  
 
   popup.querySelector("#notesBtn").onclick = async () => {
     const modal = createModal(`notesModal-${Date.now()}`, "Notes");
