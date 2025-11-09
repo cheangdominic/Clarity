@@ -229,6 +229,42 @@ function makeModalDraggable(modal) {
   };
 }
 
+// Ensure a modal opens fully within the viewport near a given popup element.
+function positionModalNearPopup(modal, popup) {
+  const margin = 12; // min distance from edges
+
+  // Prepare for measurement and fixed positioning
+  modal.style.position = "fixed";
+  modal.style.transform = "none";
+  modal.style.opacity = "0";
+  modal.style.visibility = "hidden";
+
+  // Defer until layout is ready so measurements are accurate
+  requestAnimationFrame(() => {
+    const popupRect = popup.getBoundingClientRect();
+    const modalRect = modal.getBoundingClientRect();
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+
+    // Prefer placing above the popup
+    let top = popupRect.top - margin - modalRect.height;
+    // If not enough space above, place below
+    if (top < margin) top = popupRect.bottom + margin;
+
+    // Clamp within viewport vertically
+    top = Math.max(margin, Math.min(top, viewportHeight - modalRect.height - margin));
+
+    // Center horizontally over the popup, then clamp
+    let left = popupRect.left + popupRect.width / 2 - modalRect.width / 2;
+    left = Math.max(margin, Math.min(left, viewportWidth - modalRect.width - margin));
+
+    modal.style.top = `${Math.round(top)}px`;
+    modal.style.left = `${Math.round(left)}px`;
+    modal.style.visibility = "visible";
+    modal.style.opacity = "1";
+  });
+}
+
 function createModal(id, title) {
   const modal = document.createElement("div");
   modal.id = id;
@@ -373,17 +409,8 @@ function showHighlightPopup() {
     const content = modal.querySelector(".modal-content");
     showLoadingSpinner(content);
     modal.style.display = "block";
-    const rect = popup.getBoundingClientRect();
-
-    modal.style.position = "absolute";
-
-    modal.style.top = `${rect.top - 12}px`;
-    modal.style.left = `${rect.left + rect.width / 2}px`;
-    modal.style.transform = "translateX(-50%) translateY(-100%)";
-
-    modal.style.opacity = "0";
     modal.style.zIndex = "1000000";
-    requestAnimationFrame(() => (modal.style.opacity = "1"));
+    positionModalNearPopup(modal, popup);
 
     try {
       const res = await fetch("http://localhost:5000/summarize", {
@@ -418,16 +445,8 @@ function showHighlightPopup() {
     const content = modal.querySelector(".modal-content");
     showLoadingSpinner(content);
     modal.style.display = "block";
-    const rect = popup.getBoundingClientRect();
-    modal.style.position = "absolute";
-
-    modal.style.top = `${rect.top - 12}px`;
-    modal.style.left = `${rect.left + rect.width / 2}px`;
-    modal.style.transform = "translateX(-50%) translateY(-100%)";
-
-    modal.style.opacity = "0";
     modal.style.zIndex = "1000000";
-    requestAnimationFrame(() => (modal.style.opacity = "1"));
+    positionModalNearPopup(modal, popup);
     try {
       const res = await fetch("http://localhost:5000/notes", {
         method: "POST",
