@@ -4,7 +4,45 @@ let lastClipboardText = "";
 let lastCreatedHighlight = null;
 let hoverHideTimeout = null; // for hover-based menu hide
 let menuHovering = false; // track mouse over mini-menu
+let currentTagMenuAnchorId = null; // currently open menu's anchor id
+let menuJustOpenedUntil = 0; // grace period timestamp to avoid flicker
 
+// Global polished UI styles injected once
+function injectClarityStyles() {
+  if (document.getElementById("clarity-styles")) return;
+  const st = document.createElement("style");
+  st.id = "clarity-styles";
+  st.textContent = `
+    @keyframes clarity-fade-up { from { opacity: 0; transform: translateY(6px) scale(.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
+    @keyframes clarity-fade-down { from { opacity: 0; transform: translateY(-6px) scale(.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
+    .clarity-surface { background: rgba(40,40,40,.96); color:#fff; border:1px solid rgba(255,255,255,.08); border-radius:10px; box-shadow:0 8px 28px rgba(0,0,0,.25); backdrop-filter: saturate(130%) blur(6px); -webkit-backdrop-filter: saturate(130%) blur(6px); }
+    .clarity-popup, .clarity-menu, .clarity-picker { animation: clarity-fade-up 160ms cubic-bezier(.22,.61,.36,1); will-change: transform, opacity; }
+    .clarity-panel { animation: clarity-fade-down 180ms cubic-bezier(.22,.61,.36,1); background:#fff; color:#222; border:1px solid rgba(0,0,0,.06); border-radius:12px; box-shadow:0 10px 30px rgba(0,0,0,.18); }
+    .clarity-btn { appearance:none; border:1px solid rgba(0,0,0,.12); background:linear-gradient(#fafafa,#f3f3f3); color:#222; border-radius:8px; padding:6px 10px; font-size:12px; cursor:pointer; transition:background .15s ease, transform .06s ease, box-shadow .15s ease, border-color .15s ease; box-shadow:0 1px 2px rgba(0,0,0,.06); }
+    .clarity-btn:hover { background:linear-gradient(#fff,#f6f6f6); box-shadow:0 2px 6px rgba(0,0,0,.08); }
+    .clarity-btn:active { transform: translateY(1px); }
+    .clarity-link-btn { background:none; border:none; color:#fff; padding:2px 6px; cursor:pointer; border-radius:6px; transition:background .15s ease; font-weight:600; }
+    .clarity-link-btn:hover { background: rgba(255,255,255,.08); }
+    .clarity-badge { display:inline-block; padding:3px 10px; border-radius:999px; color:#fff; font-weight:600; font-size:11px; box-shadow:0 1px 2px rgba(0,0,0,.12) inset, 0 1px 2px rgba(0,0,0,.06); }
+    .clarity-row { transition: background .15s ease; }
+    .clarity-row:hover { background:#fafafa; }
+    .clarity-color-dot { width:18px; height:18px; border-radius:50%; border:1px solid rgba(255,255,255,.55); cursor:pointer; transition: transform .12s ease, box-shadow .15s ease; }
+    .clarity-color-dot:hover { transform: scale(1.12); box-shadow: 0 0 0 3px rgba(255,255,255,.15); }
+    .clarity-highlight { transition: background-color .2s ease, box-shadow .2s ease; }
+    .clarity-highlight:hover { box-shadow: inset 0 0 0 1px rgba(0,0,0,.12); }
+    .clarity-input { appearance:none; outline:none; border:1px solid rgba(0,0,0,.15); border-radius:8px; padding:6px 10px; font-size:12px; background:#fff; color:#222; box-shadow:0 1px 1px rgba(0,0,0,.04) inset; }
+    .clarity-input:focus { border-color: #6ca0ff; box-shadow: 0 0 0 3px rgba(108,160,255,.15); }
+    .clarity-chip { display:inline-flex; align-items:center; gap:6px; padding:4px 10px; border-radius:999px; border:1px solid rgba(0,0,0,.08); background:#f7f7f9; color:#222; font-size:11px; cursor:pointer; transition: transform .06s ease, background .15s ease, box-shadow .15s ease; }
+    .clarity-chip:hover { background:#fff; box-shadow:0 2px 6px rgba(0,0,0,.08); }
+    .clarity-chip.selected { background:#e9f0ff; border-color:#9bbdff; }
+    #highlightsPanel::-webkit-scrollbar { width:10px; height:10px; }
+    #highlightsPanel::-webkit-scrollbar-thumb { background: rgba(0,0,0,.2); border-radius:999px; border:2px solid transparent; background-clip: padding-box; }
+    #highlightsPanel::-webkit-scrollbar-track { background: transparent; }
+  `;
+  document.documentElement.appendChild(st);
+}
+
+injectClarityStyles();
 setInterval(async () => {
   try {
     const text = await navigator.clipboard.readText();
@@ -212,6 +250,7 @@ function showHighlightPopup() {
   const rect = range.getBoundingClientRect();
   const popup = document.createElement("div");
   popup.id = "highlightPopup";
+  popup.classList.add("clarity-surface", "clarity-popup");
   Object.assign(popup.style, {
     position: "absolute",
     top: `${window.scrollY + rect.top - 40}px`,
@@ -236,6 +275,11 @@ function showHighlightPopup() {
     <button id="viewHistoryBtn" style="background:none;border:none;color:white;cursor:pointer;font-weight:600;">📋 History</button>
     <button id="highlightBtn" style="background:none;border:none;color:white;cursor:pointer;font-weight:600;">💡 Highlight</button>
   `;
+
+  ["#summarizeBtn", "#notesBtn", "#translateBtn", "#viewHistoryBtn", "#highlightBtn"].forEach((sel) => {
+    const el = popup.querySelector(sel);
+    if (el) el.classList.add("clarity-link-btn");
+  });
 
   document.body.appendChild(popup);
   requestAnimationFrame(() => {
@@ -683,11 +727,12 @@ function showHighlightsPanel(popup) {
       window.scrollX + popupRect.left + popupRect.width / 2
     }px`;
     panel.style.transform = "translateX(-50%) translateY(-100%)";
+    panel.classList.add("clarity-panel");
     panel.style.background = "white";
     panel.style.color = "#333";
     panel.style.padding = "12px";
-    panel.style.borderRadius = "8px";
-    panel.style.boxShadow = "0 4px 12px rgba(0,0,0,0.15)";
+    panel.style.borderRadius = "12px";
+    panel.style.boxShadow = "0 10px 30px rgba(0,0,0,0.18)";
     panel.style.zIndex = "1000000";
     panel.style.minWidth = "340px";
     panel.style.maxWidth = "460px";
@@ -696,9 +741,12 @@ function showHighlightsPanel(popup) {
 
     panel.innerHTML = `
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid #eee;">
-        <strong>Tagged Highlights</strong>
+        <div style="display:flex;align-items:center; gap:8px;">
+          <span style="font-size:16px;">🏷️</span>
+          <strong>Tagged Highlights</strong>
+        </div>
         <div>
-          <button id="clearHighlightsBtn" style="background:#ff5252;color:white;border:none;padding:4px 8px;border-radius:4px;font-size:11px;cursor:pointer;">Clear</button>
+          <button id="clearHighlightsBtn" class="clarity-btn" style="background:linear-gradient(#ff6b6b,#ff5252);color:white;border:none;">Clear</button>
         </div>
       </div>
     `;
@@ -783,6 +831,7 @@ function showHighlightsPanel(popup) {
 
         groups[tag].forEach((item) => {
           const row = document.createElement("div");
+          row.classList.add("clarity-row");
           row.style.display = "grid";
           row.style.gridTemplateColumns = "1fr auto auto";
           row.style.gap = "8px";
@@ -801,16 +850,11 @@ function showHighlightsPanel(popup) {
 
           const openBtn = document.createElement("button");
           openBtn.textContent = "Open";
+          openBtn.classList.add("clarity-btn");
           openBtn.style.fontSize = "11px";
-          openBtn.style.border = "1px solid #ddd";
-          openBtn.style.background = "#f7f7f7";
-          openBtn.style.color = "#333";
-          openBtn.style.borderRadius = "6px";
-          openBtn.style.padding = "4px 8px";
-          openBtn.style.cursor = "pointer";
           openBtn.addEventListener("click", (e) => {
             e.stopPropagation();
-            if ((item.url || "") === location.href) {
+            if (samePageURL(item.url, location.href)) {
               const el = findHighlightByRecord(item);
               if (el) {
                 try {
@@ -845,13 +889,8 @@ function showHighlightsPanel(popup) {
 
           const copyBtn = document.createElement("button");
           copyBtn.textContent = "Copy";
+          copyBtn.classList.add("clarity-btn");
           copyBtn.style.fontSize = "11px";
-          copyBtn.style.border = "1px solid #ddd";
-          copyBtn.style.background = "#f7f7f7";
-          copyBtn.style.color = "#333";
-          copyBtn.style.borderRadius = "6px";
-          copyBtn.style.padding = "4px 8px";
-          copyBtn.style.cursor = "pointer";
           copyBtn.addEventListener("click", (e) => {
             e.stopPropagation();
             navigator.clipboard.writeText(item.text);
@@ -878,9 +917,26 @@ function showHighlightsPanel(popup) {
     }
 
     document.body.appendChild(panel);
+    // After mounting, ensure panel is fully in viewport; flip below if near top
+    try {
+      const pr = panel.getBoundingClientRect();
+      const threshold = 8;
+      if (pr.top < threshold) {
+        panel.style.top = `${window.scrollY + popupRect.bottom + 10}px`;
+        panel.style.transform = "translateX(-50%) translateY(0)";
+      }
+      // Clamp horizontally if needed
+      const vw = document.documentElement.clientWidth;
+      const leftPx = Math.min(
+        Math.max(window.scrollX + 12, window.scrollX + popupRect.left),
+        window.scrollX + vw - 12
+      );
+      panel.style.left = `${leftPx}px`;
+    } catch (_) {}
 
     const clearBtn = panel.querySelector("#clearHighlightsBtn");
     if (clearBtn) {
+      clearBtn.classList.add("clarity-btn");
       clearBtn.addEventListener("click", (e) => {
         e.stopPropagation();
         if (confirm("Clear all tagged highlights?")) {
@@ -897,12 +953,17 @@ function showHighlightsPanel(popup) {
 function showTagActionsMenu(anchorEl) {
   try {
     const old = document.getElementById("tagActionsMenu");
+    // If a menu is already open for this same anchor, do nothing to prevent flicker
+    const anchorId = (anchorEl.dataset && anchorEl.dataset.clarityId) || (anchorEl.dataset ? (anchorEl.dataset.clarityId = generateHighlightId()) : generateHighlightId());
+    if (old && old.dataset && old.dataset.anchorId === anchorId) return;
     if (old) old.remove();
   } catch (_) {}
 
   const rect = anchorEl.getBoundingClientRect();
   const menu = document.createElement("div");
   menu.id = "tagActionsMenu";
+  menu.dataset.anchorId = (anchorEl.dataset && anchorEl.dataset.clarityId) || "";
+  menu.classList.add("clarity-surface", "clarity-menu");
   menu.style.position = "absolute";
   menu.style.top = `${window.scrollY + rect.top - 8}px`;
   menu.style.left = `${window.scrollX + rect.left + rect.width / 2}px`;
@@ -926,6 +987,7 @@ function showTagActionsMenu(anchorEl) {
     btn.style.color = "white";
     btn.style.cursor = "pointer";
     btn.style.padding = "2px 4px";
+    btn.classList.add("clarity-link-btn");
     return btn;
   };
 
@@ -940,10 +1002,14 @@ function showTagActionsMenu(anchorEl) {
     const tags = getHighlightTags(anchorEl);
     tags.forEach((t) => {
       const badge = document.createElement("span");
-      badge.textContent = t;
-      badge.style.display = "inline-block";
+      badge.classList.add("clarity-badge");
+      badge.style.display = "inline-flex";
+      badge.style.alignItems = "center";
+      badge.style.gap = "6px";
       badge.style.padding = "2px 8px";
       badge.style.borderRadius = "999px";
+      const label = document.createElement("span");
+      label.textContent = t;
       const c = colorsMap && colorsMap[t] ? colorsMap[t] : null;
       if (c) {
         badge.style.background = c;
@@ -957,6 +1023,31 @@ function showTagActionsMenu(anchorEl) {
         badge.style.color = "#fff";
       }
       badge.style.fontSize = "11px";
+      const rm = document.createElement("button");
+      rm.textContent = "×";
+      rm.setAttribute("aria-label", `Remove ${t}`);
+      rm.style.border = "none";
+      rm.style.background = "rgba(0,0,0,.15)";
+      rm.style.color = "#fff";
+      rm.style.cursor = "pointer";
+      rm.style.width = "16px";
+      rm.style.height = "16px";
+      rm.style.borderRadius = "50%";
+      rm.style.lineHeight = "14px";
+      rm.style.fontSize = "12px";
+      rm.style.display = "inline-flex";
+      rm.style.alignItems = "center";
+      rm.style.justifyContent = "center";
+      rm.style.opacity = "0.9";
+      rm.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const curr = getHighlightTags(anchorEl).filter((x) => x !== t);
+        setHighlightTags(anchorEl, curr);
+        upsertHighlightRecordForElement(anchorEl, curr);
+        renderBadges(colorsMap);
+      });
+      badge.appendChild(label);
+      badge.appendChild(rm);
       badgesWrap.appendChild(badge);
     });
   };
@@ -974,52 +1065,103 @@ function showTagActionsMenu(anchorEl) {
     renderBadges({});
   }
 
-  const createTagBtn = mkBtn("Create Tag");
-  const openTagsBtn = mkBtn("Tags");
+  const createTagBtn = mkBtn("Add Tag");
+  const openTagsBtn = mkBtn("View Tags");
 
-  createTagBtn.addEventListener("click", () => {
-    const existing = getHighlightTags(anchorEl);
-    const input = prompt("Enter tags (comma-separated):", existing.join(", "));
-    if (input === null) return;
-    const tags = input
-      .split(",")
-      .map((t) => t.trim())
-      .filter((t) => t.length > 0);
+  // Inline tag editor UI (discrete, consistent)
+  const editor = document.createElement("div");
+  editor.style.display = "none";
+  editor.style.alignItems = "center";
+  editor.style.gap = "6px";
+  editor.style.marginLeft = "8px";
+  const input = document.createElement("input");
+  input.placeholder = "Add tags… (comma-separated)";
+  input.className = "clarity-input";
+  input.style.minWidth = "160px";
+  const addBtn = document.createElement("button");
+  addBtn.textContent = "Add";
+  addBtn.className = "clarity-btn";
+  addBtn.style.padding = "6px 10px";
+  editor.appendChild(input);
+  editor.appendChild(addBtn);
+  menu.appendChild(editor);
+
+  const suggestions = document.createElement("div");
+  suggestions.style.display = "flex";
+  suggestions.style.flexWrap = "wrap";
+  suggestions.style.gap = "6px";
+  suggestions.style.marginLeft = "8px";
+  suggestions.style.maxWidth = "360px";
+  menu.appendChild(suggestions);
+
+  const commitTags = (tags) => {
     const uniqueTags = Array.from(new Set(tags));
-    setHighlightTags(anchorEl, uniqueTags);
-
+    const existing = getHighlightTags(anchorEl);
+    const merged = Array.from(new Set([...existing, ...uniqueTags]));
+    setHighlightTags(anchorEl, merged);
     if (!anchorEl.dataset.clarityId) {
       anchorEl.dataset.clarityId = generateHighlightId();
     }
+    upsertHighlightRecordForElement(anchorEl, merged, uniqueTags);
+    input.value = "";
+    renderBadgesFromStorage();
+    // refresh current badges row
+    try { chrome.storage.local.get(["tagColors"], (res) => renderBadges(res.tagColors || {})); } catch (_) {}
+  };
 
-    const record = {
-      id: anchorEl.dataset.clarityId || "",
-      tags: uniqueTags,
-      tag: uniqueTags[0] || "",
-      text: anchorEl.textContent || "",
-      url: location.href,
-      title: document.title,
-      color: getComputedStyle(anchorEl).backgroundColor,
-      date: new Date().toISOString(),
-    };
+  const handleAdd = () => {
+    const raw = input.value || "";
+    const tags = raw.split(",").map((t) => t.trim()).filter(Boolean);
+    if (!tags.length) return;
+    commitTags(tags);
+  };
 
-    chrome.storage.local.get(["highlights", "tagColors"], (result) => {
-      const list = Array.isArray(result.highlights) ? result.highlights : [];
-      const tagColors =
-        result.tagColors && typeof result.tagColors === "object"
-          ? result.tagColors
-          : {};
+  addBtn.addEventListener("click", (e) => { e.stopPropagation(); handleAdd(); });
+  input.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); handleAdd(); }});
 
-      const baseColor = record.color || "";
-      uniqueTags.forEach((t) => {
-        if (!tagColors[t] && baseColor) tagColors[t] = baseColor;
+  const renderBadgesFromStorage = () => {
+    try {
+      chrome.storage.local.get(["tagColors"], (res) => {
+        const map = (res && res.tagColors) || {};
+        const keys = Object.keys(map);
+        suggestions.innerHTML = "";
+        keys.slice(0, 20).forEach((k) => {
+          const chip = document.createElement("button");
+          chip.textContent = k;
+          chip.className = "clarity-chip";
+          if (map[k]) {
+            chip.style.background = map[k];
+            chip.style.color = "#fff";
+            chip.style.borderColor = "transparent";
+          }
+          chip.addEventListener("click", (e) => {
+            e.stopPropagation();
+            const current = getHighlightTags(anchorEl);
+            if (current.includes(k)) {
+              // remove tag
+              const next = current.filter((t) => t !== k);
+              setHighlightTags(anchorEl, next);
+            } else {
+              commitTags([k]);
+            }
+            renderBadgesFromStorage();
+            try { chrome.storage.local.get(["tagColors"], (r) => renderBadges(r.tagColors || {})); } catch (_) {}
+          });
+          suggestions.appendChild(chip);
+        });
       });
+    } catch (_) {}
+  };
 
-      list.unshift(record);
-      chrome.storage.local.set({ highlights: list.slice(0, 500), tagColors });
-    });
-
-    showTagActionsMenu(anchorEl);
+  createTagBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    editor.style.display = "flex";
+    // Hide the Add Tag button while editor is visible
+    createTagBtn.style.display = "none";
+    if (editor.style.display === "flex") {
+      renderBadgesFromStorage();
+      setTimeout(() => input.focus(), 0);
+    }
   });
 
   openTagsBtn.addEventListener("click", (e) => {
@@ -1031,6 +1173,8 @@ function showTagActionsMenu(anchorEl) {
   menu.appendChild(createTagBtn);
   menu.appendChild(openTagsBtn);
   document.body.appendChild(menu);
+  currentTagMenuAnchorId = menu.dataset.anchorId || null;
+  menuJustOpenedUntil = Date.now() + 350; // grace period to avoid immediate hide
 
   const closer = (e) => {
     const panel = document.getElementById("highlightsPanel");
@@ -1043,6 +1187,7 @@ function showTagActionsMenu(anchorEl) {
           panel.remove();
         } catch (_) {}
       document.removeEventListener("click", closer);
+      currentTagMenuAnchorId = null;
     }
   };
   setTimeout(() => document.addEventListener("click", closer), 0);
@@ -1087,6 +1232,18 @@ function generateHighlightId() {
 
 function normalizeText(s) {
   return (s || "").replace(/\s+/g, " ").trim();
+}
+
+function samePageURL(a, b) {
+  try {
+    const u1 = new URL(a, location.href);
+    const u2 = new URL(b, location.href);
+    const p1 = (u1.pathname || "/").replace(/\/+$/, "");
+    const p2 = (u2.pathname || "/").replace(/\/+$/, "");
+    return u1.origin === u2.origin && p1 === p2; // ignore search/hash differences
+  } catch (_) {
+    return a === b;
+  }
 }
 
 function findHighlightByRecord(item) {
@@ -1189,6 +1346,8 @@ function scheduleHoverMenuHide(anchorEl) {
   hoverHideTimeout = setTimeout(() => {
     const menu = document.getElementById("tagActionsMenu");
     if (!menu) return;
+    // Avoid hiding immediately after opening to prevent flicker
+    if (Date.now() < menuJustOpenedUntil) return;
     if (menuHovering) return;
     const stillOnHighlight = anchorEl && anchorEl.matches(":hover");
     const stillOnMenu = menu.matches(":hover");
@@ -1203,7 +1362,7 @@ function scheduleHoverMenuHide(anchorEl) {
         } catch (_) {}
       }
     }
-  }, 180);
+  }, 320);
 }
 
 function showHighlightColorPicker(selectionRect, popupRect, onPick, onCancel) {
@@ -1211,6 +1370,7 @@ function showHighlightColorPicker(selectionRect, popupRect, onPick, onCancel) {
   document.getElementById(id)?.remove();
   const picker = document.createElement("div");
   picker.id = id;
+  picker.classList.add("clarity-surface", "clarity-picker");
   Object.assign(picker.style, {
     position: "absolute",
     // initial placement: above the popup menu so we never overlap it
@@ -1240,11 +1400,8 @@ function showHighlightColorPicker(selectionRect, popupRect, onPick, onCancel) {
 
   const makeDot = (bg, border) => {
     const b = document.createElement("button");
+    b.classList.add("clarity-color-dot");
     Object.assign(b.style, {
-      width: "18px",
-      height: "18px",
-      borderRadius: "50%",
-      border: border || "1px solid rgba(255,255,255,0.6)",
       background: bg,
       cursor: "pointer",
       padding: 0,
@@ -1345,6 +1502,65 @@ function setHighlightTags(el, tags) {
   el.classList.add("clarity-highlight");
 }
 
+// Upsert a highlight record in storage for a given element and tag list.
+function upsertHighlightRecordForElement(el, finalTags, newlyAddedTags = []) {
+  const id = (el.dataset && el.dataset.clarityId) || generateHighlightId();
+  if (!el.dataset.clarityId) el.dataset.clarityId = id;
+  const record = {
+    id,
+    tags: Array.from(new Set(finalTags || [])),
+    tag: (finalTags && finalTags[0]) || "",
+    text: el.textContent || "",
+    url: location.href,
+    title: document.title,
+    color: getComputedStyle(el).backgroundColor,
+    date: new Date().toISOString(),
+  };
+  chrome.storage.local.get(["highlights", "tagColors"], (result) => {
+    const list = Array.isArray(result.highlights) ? result.highlights.slice(0) : [];
+    const tagColors =
+      result.tagColors && typeof result.tagColors === "object" ? { ...result.tagColors } : {};
+
+    // Seed colors for newly added tags
+    const base = record.color || "";
+    (newlyAddedTags || []).forEach((t) => {
+      if (t && !tagColors[t] && base) tagColors[t] = base;
+    });
+
+    // Find existing by id, else by url+text
+    let idx = -1;
+    if (record.id) idx = list.findIndex((r) => r && r.id === record.id);
+    if (idx === -1) idx = list.findIndex((r) => r && r.url === record.url && (r.id ? false : (r.text || "") === record.text));
+
+    if (idx !== -1) {
+      // Update existing
+      const existing = list[idx];
+      existing.tags = record.tags;
+      existing.tag = record.tag;
+      existing.text = record.text;
+      existing.title = record.title;
+      existing.color = record.color;
+      existing.date = record.date;
+      if (!existing.id) existing.id = record.id;
+      list[idx] = existing;
+    } else {
+      list.unshift(record);
+    }
+
+    // Dedupe by id (first wins), then by url+text
+    const seen = new Set();
+    const deduped = [];
+    for (const r of list) {
+      const key = r && (r.id ? `id:${r.id}` : `tx:${r.url}|${r.text}`);
+      if (!key) continue;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      deduped.push(r);
+    }
+    chrome.storage.local.set({ highlights: deduped.slice(0, 500), tagColors });
+  });
+}
+
 document.addEventListener("dblclick", () => {
   clearTimeout(popupTimeout);
   popupTimeout = setTimeout(showHighlightPopup, 120);
@@ -1374,6 +1590,10 @@ document.addEventListener("mouseover", (e) => {
   const el = e.target.closest && e.target.closest(".clarity-highlight");
   if (!el) return;
   if (el.contains(e.relatedTarget)) return;
+  // Prevent re-drawing the menu if it's already open for this anchor
+  const open = document.getElementById("tagActionsMenu");
+  const anchorId = el.dataset && el.dataset.clarityId;
+  if (open && open.dataset && anchorId && open.dataset.anchorId === anchorId) return;
   showTagActionsMenu(el);
 });
 
@@ -1385,6 +1605,7 @@ document.addEventListener("mouseout", (e) => {
 });
 
 // Rehydrate all saved highlights that belong to this page
+// One-shot attempt (kept for backward compatibility)
 (function rehydrateHighlightsForPage() {
   try {
     chrome.storage?.local?.get(["highlights"], (res) => {
@@ -1393,7 +1614,7 @@ document.addEventListener("mouseout", (e) => {
       let dirty = false;
       list.forEach((rec) => {
         try {
-          if (!rec || (rec.url || "") !== location.href) return;
+          if (!rec || !samePageURL(rec.url, location.href)) return;
           let el = findHighlightByRecord(rec);
           if (!el) {
             el = findAndCreateHighlightByText(rec.text, rec);
@@ -1422,13 +1643,13 @@ document.addEventListener("mouseout", (e) => {
   }
 })();
 
-// Rehydrate and focus a highlight if we navigated here from the Tags panel
+// Rehydrate and focus a highlight if we navigated here from the Tags panel (one-shot)
 (function checkPendingOpen() {
   try {
     chrome.storage?.local?.get(["clarityPendingOpen"], (res) => {
       const pending = res && res.clarityPendingOpen;
       if (!pending) return;
-      if ((pending.url || "") !== location.href) return;
+      if (!samePageURL(pending.url, location.href)) return;
       const ts = pending.ts || 0;
       if (Date.now() - ts > 60000) {
         try { chrome.storage.local.remove("clarityPendingOpen"); } catch (_) {}
@@ -1447,3 +1668,66 @@ document.addEventListener("mouseout", (e) => {
     // ignore; extension context may be unavailable transiently
   }
 })();
+
+// More robust, retry-capable rehydration that runs when DOM is ready too
+function rehydrateNow() {
+  try {
+    chrome.storage?.local?.get(["highlights"], (res) => {
+      const list = (res && Array.isArray(res.highlights)) ? res.highlights : [];
+      if (!list.length) return;
+      let dirty = false;
+      list.forEach((rec) => {
+        try {
+          if (!rec || !samePageURL(rec.url, location.href)) return;
+          let el = findHighlightByRecord(rec);
+          if (!el) el = findAndCreateHighlightByText(rec.text, rec);
+          if (el) {
+            if (rec.tags || rec.tag) {
+              const want = Array.isArray(rec.tags) && rec.tags.length ? rec.tags : (rec.tag ? [rec.tag] : []);
+              const have = getHighlightTags(el);
+              const need = want.filter((t) => !have.includes(t));
+              if (need.length) setHighlightTags(el, have.concat(need));
+            }
+            if (!rec.id && el.dataset && el.dataset.clarityId) { rec.id = el.dataset.clarityId; dirty = true; }
+          }
+        } catch (_) {}
+      });
+      if (dirty) { try { chrome.storage.local.set({ highlights: list }); } catch (_) {} }
+    });
+  } catch (_) {}
+}
+
+function checkPendingOpenNow() {
+  try {
+    chrome.storage?.local?.get(["clarityPendingOpen"], (res) => {
+      const pending = res && res.clarityPendingOpen;
+      if (!pending) return;
+      if (!samePageURL(pending.url, location.href)) return;
+      const ts = pending.ts || 0;
+      if (Date.now() - ts > 60000) { try { chrome.storage.local.remove("clarityPendingOpen"); } catch (_) {} return; }
+      let el = findHighlightByRecord(pending);
+      if (!el) el = findAndCreateHighlightByText(pending.text, pending);
+      if (el) {
+        try { el.scrollIntoView({ behavior: "smooth", block: "center", inline: "nearest" }); } catch (_) { el.scrollIntoView(); }
+        flashHighlight(el);
+        showTagActionsMenu(el);
+      }
+      try { chrome.storage.local.remove("clarityPendingOpen"); } catch (_) {}
+    });
+  } catch (_) {}
+}
+
+// Run rehydration when DOM is ready and retry a few times for late content
+function scheduleRehydrate() {
+  const run = () => { rehydrateNow(); checkPendingOpenNow(); };
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", () => {
+      [0, 300, 1200].forEach((d) => setTimeout(run, d));
+    });
+  } else {
+    [0, 300, 1200].forEach((d) => setTimeout(run, d));
+  }
+  window.addEventListener("pageshow", () => setTimeout(run, 150));
+}
+
+scheduleRehydrate();
