@@ -31,7 +31,6 @@ if (!document.getElementById("clarity-style")) {
   document.head.appendChild(style);
 }
 
-
 function initContentScript() {
   chrome.storage.local.get(["extensionDisabled"], ({ extensionDisabled }) => {
     if (extensionDisabled) {
@@ -59,7 +58,6 @@ chrome.storage.onChanged.addListener((changes, area) => {
     }
   }
 });
-
 
 function injectClarityStyles() {
   if (document.getElementById("clarity-styles")) return;
@@ -345,8 +343,7 @@ function createModal(id, title) {
       <button class="close-btn" style="background:none;border:none;color:#fff;font-size:20px;cursor:pointer;padding:0;line-height:1;">×</button>
       </div>
     </div>
-    <div class="modal-content" style="padding:14px 16px;max-height:220px;overflow:auto;font-size:14px;line-height:1.45;color:#333;"></div>
-  `;
+<div class="modal-content" style="padding:14px 16px;max-height:220px;overflow:auto;font-size:14px;line-height:1.45;color:#333;transition: max-height 0.3s ease-out, padding 0.3s ease-out;"></div>  `;
 
   document.body.appendChild(modal);
 
@@ -398,8 +395,12 @@ function createModal(id, title) {
     const icon = modal.querySelector(".collapse-icon");
     if (modal.classList.contains("collapsed")) {
       modal.classList.remove("collapsed");
+      void content.offsetHeight;
       content.style.maxHeight = "220px";
       content.style.padding = "14px 16px";
+      content.style.transition =
+        "max-height 0.3s ease-out, padding 0.3s ease-out";
+      content.style.overflow = "hidden";
       icon.textContent = "−";
     } else {
       modal.classList.add("collapsed");
@@ -420,43 +421,43 @@ function showHighlightPopup() {
       return;
     }
 
-  const selection = window.getSelection();
-  const selectedText = selection.toString().trim();
-  if (!selectedText) return;
+    const selection = window.getSelection();
+    const selectedText = selection.toString().trim();
+    if (!selectedText) return;
 
-  const oldPopup = document.getElementById("highlightPopup");
-  if (oldPopup) oldPopup.remove();
-  const oldHistoryCard = document.getElementById("clipboardHistoryCard");
-  if (oldHistoryCard) oldHistoryCard.remove();
-  if (documentClickListener) {
-    document.removeEventListener("click", documentClickListener);
-    documentClickListener = null;
-  }
+    const oldPopup = document.getElementById("highlightPopup");
+    if (oldPopup) oldPopup.remove();
+    const oldHistoryCard = document.getElementById("clipboardHistoryCard");
+    if (oldHistoryCard) oldHistoryCard.remove();
+    if (documentClickListener) {
+      document.removeEventListener("click", documentClickListener);
+      documentClickListener = null;
+    }
 
-  const range = selection.getRangeAt(0);
+    const range = selection.getRangeAt(0);
 
-  const rect = range.getBoundingClientRect();
-  const popup = document.createElement("div");
-  popup.id = "highlightPopup";
-  popup.classList.add("clarity-surface", "clarity-popup");
-  Object.assign(popup.style, {
-    position: "absolute",
-    top: `${window.scrollY + rect.top - 40}px`,
-    left: `${window.scrollX + rect.left + rect.width / 2}px`,
-    transform: "translateX(-50%) translateY(-5px)",
-    background: "#333",
-    color: "#fff",
-    padding: "8px 12px",
-    borderRadius: "8px",
-    boxShadow: "0 2px 6px rgba(0,0,0,0.3)",
-    zIndex: "999999",
-    fontSize: "14px",
-    display: "flex",
-    gap: "10px",
-    opacity: "0",
-    transition: "opacity 0.2s ease, transform 0.2s ease",
-  });
-  popup.innerHTML = `
+    const rect = range.getBoundingClientRect();
+    const popup = document.createElement("div");
+    popup.id = "highlightPopup";
+    popup.classList.add("clarity-surface", "clarity-popup");
+    Object.assign(popup.style, {
+      position: "absolute",
+      top: `${window.scrollY + rect.top - 40}px`,
+      left: `${window.scrollX + rect.left + rect.width / 2}px`,
+      transform: "translateX(-50%) translateY(-5px)",
+      background: "#333",
+      color: "#fff",
+      padding: "8px 12px",
+      borderRadius: "8px",
+      boxShadow: "0 2px 6px rgba(0,0,0,0.3)",
+      zIndex: "999999",
+      fontSize: "14px",
+      display: "flex",
+      gap: "10px",
+      opacity: "0",
+      transition: "opacity 0.2s ease, transform 0.2s ease",
+    });
+    popup.innerHTML = `
     <button id="summarizeBtn" style="background:none;border:none;color:white;cursor:pointer;font-weight:600;">✨ Summarize</button>
     <button id="notesBtn" style="background:none;border:none;color:white;cursor:pointer;font-weight:600;">📝 Notes</button>
     <button id="translateBtn" style="background:none;border:none;color:white;cursor:pointer;font-weight:600;">🌐 Translate</button>
@@ -464,235 +465,236 @@ function showHighlightPopup() {
     <button id="highlightBtn" style="background:none;border:none;color:white;cursor:pointer;font-weight:600;">💡 Highlight</button>
   `;
 
-  [
-    "#summarizeBtn",
-    "#notesBtn",
-    "#translateBtn",
-    "#viewHistoryBtn",
-    "#highlightBtn",
-  ].forEach((sel) => {
-    const el = popup.querySelector(sel);
-    if (el) el.classList.add("clarity-link-btn");
-  });
-
-document.body.appendChild(popup);
-const popupRect = popup.getBoundingClientRect();
-popup.style.left = `${rect.left + rect.width / 2 - popupRect.width / 2}px`;
-popup.style.top = `${rect.top + window.scrollY - 48}px`;
-popup.style.opacity = "1";
-popup.style.transform = "none";
-
-  
-  popup.querySelector("#summarizeBtn").onclick = async () => {
-    const modal = createModal(`summaryModal-${Date.now()}`, "Summary");
-    modal.setHighlight(null);
-    const content = modal.querySelector(".modal-content");
-    showLoadingSpinner(content);
-    modal.style.display = "block";
-    modal.style.zIndex = "1000000";
-    modal.style.fontFamily = `Segoe UI`;
-    requestAnimationFrame(() => (modal.style.opacity = "1"));
-    positionModalNearPopup(modal, popup);
-
-    try {
-      const res = await fetch("http://localhost:5000/summarize", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: selectedText }),
-      });
-      const data = await res.json();
-      content.innerHTML = data.summary || "No summary available.";
-    } catch {
-      content.innerHTML = `<p style="color:#a00;">Failed to fetch summary.</p>`;
-    }
-  };
-
-  popup.querySelectorAll("button").forEach((btn) => {
-    btn.addEventListener("mouseenter", () => (btn.style.background = "#555"));
-    btn.addEventListener("mouseleave", () => (btn.style.background = "none"));
-
-    btn.addEventListener("click", () => {
-      btn.style.transform = "scale(0.95)";
-      btn.style.transition = "transform 0.1s ease";
-      setTimeout(() => {
-        btn.style.transform = "scale(1)";
-      }, 100);
-    });
-  });
-
-  popup.querySelector("#notesBtn").onclick = async () => {
-    const modal = createModal(`notesModal-${Date.now()}`, "Notes");
-    modal.setHighlight(null);
-    const content = modal.querySelector(".modal-content");
-    showLoadingSpinner(content);
-    modal.style.display = "block";
-    modal.style.zIndex = "1000000";
-    modal.style.fontFamily = `Segoe UI`;
-    requestAnimationFrame(() => (modal.style.opacity = "1"));
-    positionModalNearPopup(modal, popup);
-    try {
-      const res = await fetch("http://localhost:5000/notes", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: selectedText }),
-      });
-      const data = await res.json();
-      content.innerHTML = markdownToHtml(data.notes) || "No notes available.";
-    } catch {
-      content.innerHTML = `<p style="color:#a00;">Failed to fetch notes.</p>`;
-    }
-  };
-
-  popup.querySelector("#translateBtn").addEventListener("click", async () => {
-    const existingBox = document.getElementById("centerBox");
-    if (existingBox) {
-      existingBox.remove();
-      return;
-    }
-
-    const selection = window.getSelection();
-    const selectedText = selection.toString().trim();
-    if (!selectedText) return;
-
-    const box = document.createElement("div");
-    box.id = "centerBox";
-    Object.assign(box.style, {
-      position: "fixed",
-      top: "50%",
-      left: "50%",
-      transform: "translate(-50%, -50%)",
-      background: "#333",
-      color: "#fff",
-      padding: "20px 30px",
-      borderRadius: "12px",
-      boxShadow: "0 4px 10px rgba(0,0,0,0.3)",
-      zIndex: "1000000",
-      fontSize: "16px",
-      textAlign: "center",
+    [
+      "#summarizeBtn",
+      "#notesBtn",
+      "#translateBtn",
+      "#viewHistoryBtn",
+      "#highlightBtn",
+    ].forEach((sel) => {
+      const el = popup.querySelector(sel);
+      if (el) el.classList.add("clarity-link-btn");
     });
 
-    const title = document.createElement("div");
-    title.innerText = "Select language:";
-    title.style.marginBottom = "10px";
-    box.appendChild(title);
+    document.body.appendChild(popup);
+    const popupRect = popup.getBoundingClientRect();
+    popup.style.left = `${rect.left + rect.width / 2 - popupRect.width / 2}px`;
+    popup.style.top = `${rect.top + window.scrollY - 48}px`;
+    popup.style.opacity = "1";
+    popup.style.transform = "none";
 
-    const select = document.createElement("select");
-    Object.assign(select.style, {
-      padding: "6px",
-      borderRadius: "6px",
-      border: "none",
-      marginBottom: "10px",
-      fontSize: "14px",
-      cursor: "pointer",
-    });
+    popup.querySelector("#summarizeBtn").onclick = async () => {
+      const modal = createModal(`summaryModal-${Date.now()}`, "Summary");
+      modal.setHighlight(null);
+      const content = modal.querySelector(".modal-content");
+      showLoadingSpinner(content);
+      modal.style.display = "block";
+      modal.style.zIndex = "1000000";
+      modal.style.fontFamily = `Segoe UI`;
+      requestAnimationFrame(() => (modal.style.opacity = "1"));
+      positionModalNearPopup(modal, popup);
 
-    const languages = {
-      en: "English",
-      es: "Spanish",
-      fr: "French",
-      de: "German",
-      it: "Italian",
-      pt: "Portuguese",
-      ja: "Japanese",
-      ko: "Korean",
-      zh: "Chinese",
-      ar: "Arabic",
-    };
-
-    for (const [code, name] of Object.entries(languages)) {
-      const opt = document.createElement("option");
-      opt.value = code;
-      opt.textContent = name;
-      select.appendChild(opt);
-    }
-    box.appendChild(select);
-
-    const translateBtn = document.createElement("button");
-    translateBtn.innerText = "Translate";
-    Object.assign(translateBtn.style, {
-      marginTop: "10px",
-      padding: "6px 12px",
-      border: "none",
-      borderRadius: "5px",
-      background: "#555",
-      color: "#fff",
-      cursor: "pointer",
-    });
-    box.appendChild(document.createElement("br"));
-    box.appendChild(translateBtn);
-
-    const output = document.createElement("div");
-    output.style.marginTop = "15px";
-    output.style.fontSize = "15px";
-    output.innerText = "";
-    box.appendChild(output);
-
-    const closeBtn = document.createElement("button");
-    closeBtn.innerText = "Close";
-    Object.assign(closeBtn.style, {
-      marginTop: "10px",
-      padding: "5px 10px",
-      border: "none",
-      borderRadius: "5px",
-      cursor: "pointer",
-      background: "#777",
-      color: "#fff",
-    });
-    closeBtn.addEventListener("click", () => box.remove());
-    box.appendChild(document.createElement("br"));
-    box.appendChild(closeBtn);
-
-    document.body.appendChild(box);
-
-    translateBtn.addEventListener("click", async () => {
-      const targetLang = select.value;
-      output.innerText = "Translating...";
       try {
-        const res = await fetch("http://localhost:5000/translate", {
+        const res = await fetch("http://localhost:5000/summarize", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            text: selectedText,
-            target: targetLang,
-          }),
+          body: JSON.stringify({ text: selectedText }),
         });
-        if (!res.ok) throw new Error("Translation request failed");
         const data = await res.json();
-        const translated = data.translatedText || "Translation failed.";
+        content.innerHTML = data.summary || "No summary available.";
+      } catch {
+        content.innerHTML = `<p style="color:#a00;">Failed to fetch summary.</p>`;
+      }
+    };
 
-        if (selection.rangeCount > 0) {
-          const range = selection.getRangeAt(0);
-          const selectedText = range.toString();
+    popup.querySelectorAll("button").forEach((btn) => {
+      btn.addEventListener("mouseenter", () => (btn.style.background = "#555"));
+      btn.addEventListener("mouseleave", () => (btn.style.background = "none"));
 
-          const leadingSpacesMatch = selectedText.match(/^(\s*)/);
-          const trailingSpacesMatch = selectedText.match(/(\s*)$/);
+      btn.addEventListener("click", () => {
+        btn.style.transform = "scale(0.95)";
+        btn.style.transition = "transform 0.1s ease";
+        setTimeout(() => {
+          btn.style.transform = "scale(1)";
+        }, 100);
+      });
+    });
 
-          const leadingSpaces = leadingSpacesMatch ? leadingSpacesMatch[0] : "";
-          const trailingSpaces = trailingSpacesMatch
-            ? trailingSpacesMatch[0]
-            : "";
+    popup.querySelector("#notesBtn").onclick = async () => {
+      const modal = createModal(`notesModal-${Date.now()}`, "Notes");
+      modal.setHighlight(null);
+      const content = modal.querySelector(".modal-content");
+      showLoadingSpinner(content);
+      modal.style.display = "block";
+      modal.style.zIndex = "1000000";
+      modal.style.fontFamily = `Segoe UI`;
+      requestAnimationFrame(() => (modal.style.opacity = "1"));
+      positionModalNearPopup(modal, popup);
+      try {
+        const res = await fetch("http://localhost:5000/notes", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text: selectedText }),
+        });
+        const data = await res.json();
+        content.innerHTML = markdownToHtml(data.notes) || "No notes available.";
+      } catch {
+        content.innerHTML = `<p style="color:#a00;">Failed to fetch notes.</p>`;
+      }
+    };
 
-          const coreText = selectedText.slice(
-            leadingSpaces.length,
-            selectedText.length - trailingSpaces.length
-          );
+    popup.querySelector("#translateBtn").addEventListener("click", async () => {
+      const existingBox = document.getElementById("centerBox");
+      if (existingBox) {
+        existingBox.remove();
+        return;
+      }
 
-          const span = document.createElement("span");
-          span.textContent = translated;
-          span.style.backgroundColor = "rgba(255,255,0,0.2)";
-          span.style.transition = "background-color 0.3s";
-          span.style.cursor = "help";
-          const tooltip = document.createElement("div");
-          Object.assign(tooltip.style, {
-            position: "absolute",
-            visibility: "hidden",
-            padding: "8px",
-            width: "500px",
-            borderRadius: "4px",
-            boxShadow: "0 2px 5px rgba(0,0,0,0.4)",
-            zIndex: "10000000",
+      const selection = window.getSelection();
+      const selectedText = selection.toString().trim();
+      if (!selectedText) return;
+
+      const box = document.createElement("div");
+      box.id = "centerBox";
+      Object.assign(box.style, {
+        position: "fixed",
+        top: "50%",
+        left: "50%",
+        transform: "translate(-50%, -50%)",
+        background: "#333",
+        color: "#fff",
+        padding: "20px 30px",
+        borderRadius: "12px",
+        boxShadow: "0 4px 10px rgba(0,0,0,0.3)",
+        zIndex: "1000000",
+        fontSize: "16px",
+        textAlign: "center",
+      });
+
+      const title = document.createElement("div");
+      title.innerText = "Select language:";
+      title.style.marginBottom = "10px";
+      box.appendChild(title);
+
+      const select = document.createElement("select");
+      Object.assign(select.style, {
+        padding: "6px",
+        borderRadius: "6px",
+        border: "none",
+        marginBottom: "10px",
+        fontSize: "14px",
+        cursor: "pointer",
+      });
+
+      const languages = {
+        en: "English",
+        es: "Spanish",
+        fr: "French",
+        de: "German",
+        it: "Italian",
+        pt: "Portuguese",
+        ja: "Japanese",
+        ko: "Korean",
+        zh: "Chinese",
+        ar: "Arabic",
+      };
+
+      for (const [code, name] of Object.entries(languages)) {
+        const opt = document.createElement("option");
+        opt.value = code;
+        opt.textContent = name;
+        select.appendChild(opt);
+      }
+      box.appendChild(select);
+
+      const translateBtn = document.createElement("button");
+      translateBtn.innerText = "Translate";
+      Object.assign(translateBtn.style, {
+        marginTop: "10px",
+        padding: "6px 12px",
+        border: "none",
+        borderRadius: "5px",
+        background: "#555",
+        color: "#fff",
+        cursor: "pointer",
+      });
+      box.appendChild(document.createElement("br"));
+      box.appendChild(translateBtn);
+
+      const output = document.createElement("div");
+      output.style.marginTop = "15px";
+      output.style.fontSize = "15px";
+      output.innerText = "";
+      box.appendChild(output);
+
+      const closeBtn = document.createElement("button");
+      closeBtn.innerText = "Close";
+      Object.assign(closeBtn.style, {
+        marginTop: "10px",
+        padding: "5px 10px",
+        border: "none",
+        borderRadius: "5px",
+        cursor: "pointer",
+        background: "#777",
+        color: "#fff",
+      });
+      closeBtn.addEventListener("click", () => box.remove());
+      box.appendChild(document.createElement("br"));
+      box.appendChild(closeBtn);
+
+      document.body.appendChild(box);
+
+      translateBtn.addEventListener("click", async () => {
+        const targetLang = select.value;
+        output.innerText = "Translating...";
+        try {
+          const res = await fetch("http://localhost:5000/translate", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              text: selectedText,
+              target: targetLang,
+            }),
           });
-          tooltip.innerHTML = `
+          if (!res.ok) throw new Error("Translation request failed");
+          const data = await res.json();
+          const translated = data.translatedText || "Translation failed.";
+
+          if (selection.rangeCount > 0) {
+            const range = selection.getRangeAt(0);
+            const selectedText = range.toString();
+
+            const leadingSpacesMatch = selectedText.match(/^(\s*)/);
+            const trailingSpacesMatch = selectedText.match(/(\s*)$/);
+
+            const leadingSpaces = leadingSpacesMatch
+              ? leadingSpacesMatch[0]
+              : "";
+            const trailingSpaces = trailingSpacesMatch
+              ? trailingSpacesMatch[0]
+              : "";
+
+            const coreText = selectedText.slice(
+              leadingSpaces.length,
+              selectedText.length - trailingSpaces.length
+            );
+
+            const span = document.createElement("span");
+            span.textContent = translated;
+            span.style.backgroundColor = "rgba(255,255,0,0.2)";
+            span.style.transition = "background-color 0.3s";
+            span.style.cursor = "help";
+            const tooltip = document.createElement("div");
+            Object.assign(tooltip.style, {
+              position: "absolute",
+              visibility: "hidden",
+              padding: "8px",
+              width: "500px",
+              borderRadius: "4px",
+              boxShadow: "0 2px 5px rgba(0,0,0,0.4)",
+              zIndex: "10000000",
+            });
+            tooltip.innerHTML = `
           <div style="background: black; color: white; padding: 4px 8px; font-weight: bold; border-radius: 4px 4px 0 0;">
               Original Text
           </div>
@@ -701,161 +703,164 @@ popup.style.transform = "none";
           </div>
       `;
 
-          document.body.appendChild(tooltip);
+            document.body.appendChild(tooltip);
 
-          span.addEventListener("mouseenter", (e) => {
-            span.style.backgroundColor = "rgba(255,255,0,0.4)";
+            span.addEventListener("mouseenter", (e) => {
+              span.style.backgroundColor = "rgba(255,255,0,0.4)";
 
-            Object.assign(tooltip.style, {
-              visibility: "visible",
-              left: `${e.pageX + 10}px`,
-              top: `${e.pageY + 10}px`,
+              Object.assign(tooltip.style, {
+                visibility: "visible",
+                left: `${e.pageX + 10}px`,
+                top: `${e.pageY + 10}px`,
+              });
             });
-          });
 
-          span.addEventListener("mouseleave", () => {
-            span.style.backgroundColor = "rgba(255,255,0,0.2)";
-            tooltip.style.visibility = "hidden";
-          });
+            span.addEventListener("mouseleave", () => {
+              span.style.backgroundColor = "rgba(255,255,0,0.2)";
+              tooltip.style.visibility = "hidden";
+            });
 
-          const fragment = document.createDocumentFragment();
-          if (leadingSpaces)
-            fragment.appendChild(document.createTextNode(leadingSpaces));
-          fragment.appendChild(span);
-          if (trailingSpaces)
-            fragment.appendChild(document.createTextNode(trailingSpaces));
+            const fragment = document.createDocumentFragment();
+            if (leadingSpaces)
+              fragment.appendChild(document.createTextNode(leadingSpaces));
+            fragment.appendChild(span);
+            if (trailingSpaces)
+              fragment.appendChild(document.createTextNode(trailingSpaces));
 
-          range.deleteContents();
-          range.insertNode(fragment);
+            range.deleteContents();
+            range.insertNode(fragment);
+          }
+
+          box.remove();
+        } catch (err) {
+          console.error("Translation error:", err);
+          output.innerText = "Error fetching translation.";
         }
-
-        box.remove();
-      } catch (err) {
-        console.error("Translation error:", err);
-        output.innerText = "Error fetching translation.";
-      }
+      });
     });
-  });
 
-  popup.querySelector("#viewHistoryBtn").addEventListener("click", (e) => {
-    e.stopPropagation();
-    e.preventDefault();
+    popup.querySelector("#viewHistoryBtn").addEventListener("click", (e) => {
+      e.stopPropagation();
+      e.preventDefault();
 
-    const historyCard = document.getElementById("clipboardHistoryCard");
+      const historyCard = document.getElementById("clipboardHistoryCard");
 
-    if (historyCard) {
-      historyCard.remove();
-      return;
-    }
-
-    showClipboardHistory(popup);
-  });
-
-  popup.querySelector("#highlightBtn").addEventListener("click", (e) => {
-    e.stopPropagation();
-    e.preventDefault();
-
-    const colorPicker = document.getElementById("highlightColorPicker");
-
-    if (colorPicker) {
-      colorPicker.remove();
-      return;
-    }
-
-    const selection = window.getSelection();
-    if (!selection.rangeCount) return;
-
-    const selectedText = selection.toString().trim();
-    if (selectedText.length === 0) return;
-
-    const range = selection.getRangeAt(0).cloneRange();
-    const rectSel = range.getBoundingClientRect();
-    const popupRect = popup.getBoundingClientRect();
-    const historyCard = document.getElementById("clipboardHistoryCard");
-
-    if (historyCard) {
-      historyCard.remove();
-    }
-
-    showHighlightColorPicker(rectSel, popupRect, (styleSpec) => {
-      let highlight = null;
-      try {
-        const extracted = range.extractContents();
-        highlight = document.createElement("span");
-        highlight.style.backgroundColor = styleSpec.background;
-        if (styleSpec.boxShadow)
-          highlight.style.boxShadow = styleSpec.boxShadow;
-        highlight.style.borderRadius = "2px";
-        highlight.style.padding = "0 2px";
-        highlight.className = "clarity-highlight";
-        highlight.appendChild(extracted);
-        range.insertNode(highlight);
-        selection.removeAllRanges();
-        lastCreatedHighlight = highlight;
-      } catch (err) {
-        console.error("Highlight failed, likely spans multiple elements:", err);
-        alert(
-          "Cannot highlight across complex HTML elements. Try a simpler selection."
-        );
+      if (historyCard) {
+        historyCard.remove();
         return;
       }
 
-      try {
-        popup.remove();
-      } catch (_) {}
-      if (historyCard) {
-        try {
-          historyCard.remove();
-        } catch (_) {}
-      }
-      if (documentClickListener) {
-        document.removeEventListener("click", documentClickListener);
-        documentClickListener = null;
-      }
-      try {
-        showTagActionsMenu(highlight);
-      } catch (e) {
-        console.warn("Tag menu open failed:", e);
-      }
+      showClipboardHistory(popup);
     });
-  });
 
-  setTimeout(() => {
-    documentClickListener = (e) => {
+    popup.querySelector("#highlightBtn").addEventListener("click", (e) => {
+      e.stopPropagation();
+      e.preventDefault();
+
+      const colorPicker = document.getElementById("highlightColorPicker");
+
+      if (colorPicker) {
+        colorPicker.remove();
+        return;
+      }
+
+      const selection = window.getSelection();
+      if (!selection.rangeCount) return;
+
+      const selectedText = selection.toString().trim();
+      if (selectedText.length === 0) return;
+
+      const range = selection.getRangeAt(0).cloneRange();
+      const rectSel = range.getBoundingClientRect();
+      const popupRect = popup.getBoundingClientRect();
       const historyCard = document.getElementById("clipboardHistoryCard");
-      const highlightsPanel = document.getElementById("highlightsPanel");
-      if (
-        !popup.contains(e.target) &&
-        (!historyCard || !historyCard.contains(e.target)) &&
-        (!highlightsPanel || !highlightsPanel.contains(e.target))
-      ) {
+
+      if (historyCard) {
+        historyCard.remove();
+      }
+
+      showHighlightColorPicker(rectSel, popupRect, (styleSpec) => {
+        let highlight = null;
+        try {
+          const extracted = range.extractContents();
+          highlight = document.createElement("span");
+          highlight.style.backgroundColor = styleSpec.background;
+          if (styleSpec.boxShadow)
+            highlight.style.boxShadow = styleSpec.boxShadow;
+          highlight.style.borderRadius = "2px";
+          highlight.style.padding = "0 2px";
+          highlight.className = "clarity-highlight";
+          highlight.appendChild(extracted);
+          range.insertNode(highlight);
+          selection.removeAllRanges();
+          lastCreatedHighlight = highlight;
+        } catch (err) {
+          console.error(
+            "Highlight failed, likely spans multiple elements:",
+            err
+          );
+          alert(
+            "Cannot highlight across complex HTML elements. Try a simpler selection."
+          );
+          return;
+        }
+
+        try {
+          popup.remove();
+        } catch (_) {}
         if (historyCard) {
           try {
-            historyCard.classList.add("clarity-exit");
+            historyCard.remove();
           } catch (_) {}
-          setTimeout(() => {
-            try {
-              historyCard.remove();
-            } catch (_) {}
-          }, 170);
         }
-        if (highlightsPanel) {
-          try {
-            highlightsPanel.classList.add("clarity-exit");
-          } catch (_) {}
-          setTimeout(() => {
-            try {
-              highlightsPanel.remove();
-            } catch (_) {}
-          }, 170);
+        if (documentClickListener) {
+          document.removeEventListener("click", documentClickListener);
+          documentClickListener = null;
         }
-        document.removeEventListener("click", documentClickListener);
-        documentClickListener = null;
-      }
-    };
-    document.addEventListener("click", documentClickListener);
-  }, 150);
-})
+        try {
+          showTagActionsMenu(highlight);
+        } catch (e) {
+          console.warn("Tag menu open failed:", e);
+        }
+      });
+    });
+
+    setTimeout(() => {
+      documentClickListener = (e) => {
+        const historyCard = document.getElementById("clipboardHistoryCard");
+        const highlightsPanel = document.getElementById("highlightsPanel");
+        if (
+          !popup.contains(e.target) &&
+          (!historyCard || !historyCard.contains(e.target)) &&
+          (!highlightsPanel || !highlightsPanel.contains(e.target))
+        ) {
+          if (historyCard) {
+            try {
+              historyCard.classList.add("clarity-exit");
+            } catch (_) {}
+            setTimeout(() => {
+              try {
+                historyCard.remove();
+              } catch (_) {}
+            }, 170);
+          }
+          if (highlightsPanel) {
+            try {
+              highlightsPanel.classList.add("clarity-exit");
+            } catch (_) {}
+            setTimeout(() => {
+              try {
+                highlightsPanel.remove();
+              } catch (_) {}
+            }, 170);
+          }
+          document.removeEventListener("click", documentClickListener);
+          documentClickListener = null;
+        }
+      };
+      document.addEventListener("click", documentClickListener);
+    }, 150);
+  });
 }
 function showClipboardHistory(popup) {
   const oldCard = document.getElementById("clipboardHistoryCard");
@@ -882,7 +887,6 @@ function showClipboardHistory(popup) {
       overflow: "hidden",
       transformOrigin: "top center",
     });
-    
 
     card.innerHTML = `
       <div class="modal-header" style="
@@ -988,10 +992,16 @@ function showClipboardHistory(popup) {
       let top = popupRect.top - margin - cardRect.height;
       if (top < margin) top = popupRect.bottom + margin;
 
-      top = Math.max(margin, Math.min(top, viewportHeight - cardRect.height - margin));
+      top = Math.max(
+        margin,
+        Math.min(top, viewportHeight - cardRect.height - margin)
+      );
 
       let left = popupRect.left + popupRect.width / 2 - cardRect.width / 2;
-      left = Math.max(margin, Math.min(left, viewportWidth - cardRect.width - margin));
+      left = Math.max(
+        margin,
+        Math.min(left, viewportWidth - cardRect.width - margin)
+      );
 
       card.style.top = `${Math.round(top)}px`;
       card.style.left = `${Math.round(left)}px`;
@@ -1005,7 +1015,7 @@ function showClipboardHistory(popup) {
       card.style.opacity = "0";
       card.style.transform = "scale(0.95) translateY(-10px)";
       setTimeout(() => card.remove(), 200);
-    };    
+    };
 
     const clearBtn = card.querySelector("#clearHistoryBtn");
     clearBtn.onclick = (e) => {
