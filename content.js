@@ -30,7 +30,6 @@ function inlineMarkdown(s) {
   return s;
 }
 
-
 function escapeHtml(text) {
   return text
     .replace(/&/g, "&amp;")
@@ -127,7 +126,6 @@ function makeModalDraggable(modal) {
 
   header.addEventListener("mousedown", (e) => {
     isDragging = true;
-    modal._highlight.style.backgroundColor = "#fbf719";
     const rect = modal.getBoundingClientRect();
     offsetX = e.clientX - rect.left;
     offsetY = e.clientY - rect.top;
@@ -137,21 +135,22 @@ function makeModalDraggable(modal) {
 
   document.addEventListener("mousemove", (e) => {
     if (!isDragging) return;
-    modal._highlight.style.backgroundColor = "#fbf719";
     modal.style.left = `${e.clientX - offsetX}px`;
     modal.style.top = `${e.clientY - offsetY}px`;
     modal.style.transform = "none";
   });
 
   document.addEventListener("mouseup", () => {
-    if (isDragging && modal._highlight)
-      modal._highlight.style.backgroundColor = "";
     isDragging = false;
     modal.style.transition = "opacity 0.2s ease, transform 0.2s ease";
     document.body.style.userSelect = "auto";
   });
 
-  header.addEventListener("mouseleave", () => {
+  modal.addEventListener("mouseenter", () => {
+    if (modal._highlight) modal._highlight.style.backgroundColor = "#fbf719";
+  });
+
+  modal.addEventListener("mouseleave", () => {
     if (modal._highlight) modal._highlight.style.backgroundColor = "";
   });
 }
@@ -255,6 +254,7 @@ function showHighlightPopup() {
     modal.style.left = `${window.scrollX + rect.left + rect.width / 2}px`;
     modal.style.transform = "translateX(-50%) translateY(-100%)";
     modal.style.opacity = "0";
+    modal.style.zIndex = "10000";
     requestAnimationFrame(() => (modal.style.opacity = "1"));
     try {
       const res = await fetch("http://localhost:5000/summarize", {
@@ -298,10 +298,10 @@ function showHighlightPopup() {
     const selection = window.getSelection();
     const selectedText = selection.toString().trim();
     if (!selectedText) return;
-  
+
     const oldBox = document.getElementById("centerBox");
     if (oldBox) oldBox.remove();
-  
+
     const box = document.createElement("div");
     box.id = "centerBox";
     Object.assign(box.style, {
@@ -318,12 +318,12 @@ function showHighlightPopup() {
       fontSize: "16px",
       textAlign: "center",
     });
-  
+
     const title = document.createElement("div");
     title.innerText = "Select language:";
     title.style.marginBottom = "10px";
     box.appendChild(title);
-  
+
     const select = document.createElement("select");
     Object.assign(select.style, {
       padding: "6px",
@@ -333,7 +333,7 @@ function showHighlightPopup() {
       fontSize: "14px",
       cursor: "pointer",
     });
-  
+
     const languages = {
       en: "English",
       es: "Spanish",
@@ -346,7 +346,7 @@ function showHighlightPopup() {
       zh: "Chinese",
       ar: "Arabic",
     };
-  
+
     for (const [code, name] of Object.entries(languages)) {
       const opt = document.createElement("option");
       opt.value = code;
@@ -354,7 +354,7 @@ function showHighlightPopup() {
       select.appendChild(opt);
     }
     box.appendChild(select);
-  
+
     const translateBtn = document.createElement("button");
     translateBtn.innerText = "Translate";
     Object.assign(translateBtn.style, {
@@ -368,13 +368,13 @@ function showHighlightPopup() {
     });
     box.appendChild(document.createElement("br"));
     box.appendChild(translateBtn);
-  
+
     const output = document.createElement("div");
     output.style.marginTop = "15px";
     output.style.fontSize = "15px";
     output.innerText = "";
     box.appendChild(output);
-  
+
     const closeBtn = document.createElement("button");
     closeBtn.innerText = "Close";
     Object.assign(closeBtn.style, {
@@ -389,9 +389,9 @@ function showHighlightPopup() {
     closeBtn.addEventListener("click", () => box.remove());
     box.appendChild(document.createElement("br"));
     box.appendChild(closeBtn);
-  
+
     document.body.appendChild(box);
-  
+
     translateBtn.addEventListener("click", async () => {
       const targetLang = select.value;
       output.innerText = "Translating...";
@@ -407,31 +407,29 @@ function showHighlightPopup() {
         if (!res.ok) throw new Error("Translation request failed");
         const data = await res.json();
         const translated = data.translatedText || "Translation failed.";
-  
-        // Replace the selected text with a hoverable span
+
         if (selection.rangeCount > 0) {
           const range = selection.getRangeAt(0);
           range.deleteContents();
-  
+
           const span = document.createElement("span");
           span.textContent = translated;
           span.style.backgroundColor = "rgba(255,255,0,0.2)";
           span.style.transition = "background-color 0.3s";
           span.style.cursor = "help";
           span.title = `Original: ${selectedText}`;
-  
-          // Optional: subtle hover animation
+
           span.addEventListener("mouseenter", () => {
             span.style.backgroundColor = "rgba(255,255,0,0.4)";
           });
           span.addEventListener("mouseleave", () => {
             span.style.backgroundColor = "rgba(255,255,0,0.2)";
           });
-  
+
           range.insertNode(span);
         }
-  
-        box.remove(); // close popup
+
+        box.remove();
       } catch (err) {
         console.error("Translation error:", err);
         output.innerText = "Error fetching translation.";
@@ -459,7 +457,6 @@ function showHighlightPopup() {
       try {
         const extracted = range.extractContents();
         const highlight = document.createElement("span");
-        // apply chosen color style
         highlight.style.backgroundColor = styleSpec.background;
         if (styleSpec.boxShadow)
           highlight.style.boxShadow = styleSpec.boxShadow;
@@ -478,6 +475,12 @@ function showHighlightPopup() {
         try {
           popup.remove();
         } catch (_) {}
+
+        const historyCard = document.getElementById("clipboardHistoryCard");
+        if (historyCard) {
+          historyCard.remove();
+        }
+
         if (documentClickListener) {
           document.removeEventListener("click", documentClickListener);
           documentClickListener = null;
