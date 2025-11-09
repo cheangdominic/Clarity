@@ -458,11 +458,14 @@ function showHighlightPopup() {
     if (el) el.classList.add("clarity-link-btn");
   });
 
-  document.body.appendChild(popup);
-  requestAnimationFrame(() => {
-    popup.style.opacity = "1";
-    popup.style.transform = "translateX(-50%) translateY(-17.5%)";
-  });
+document.body.appendChild(popup);
+const popupRect = popup.getBoundingClientRect();
+popup.style.left = `${rect.left + rect.width / 2 - popupRect.width / 2}px`;
+popup.style.top = `${rect.top + window.scrollY - 48}px`;
+popup.style.opacity = "1";
+popup.style.transform = "none";
+
+  
   popup.querySelector("#summarizeBtn").onclick = async () => {
     const modal = createModal(`summaryModal-${Date.now()}`, "Summary");
     modal.setHighlight(highlightSpan);
