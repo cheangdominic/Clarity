@@ -878,8 +878,8 @@ function showClipboardHistory(popup) {
       position: "absolute",
       transition: "opacity 0.3s ease, transform 0.3s ease",
       opacity: "1",
-      transform: "scale(1)",
       overflow: "hidden",
+      transformOrigin: "top center",
     });
 
     const popupRect = popup.getBoundingClientRect();
@@ -887,7 +887,8 @@ function showClipboardHistory(popup) {
     card.style.left = `${
       window.scrollX + popupRect.left + popupRect.width / 2
     }px`;
-    card.style.transform += " translateX(-50%) translateY(-100%)";
+    card.style.transform = "translateX(-50%) translateY(-100%) scale(1)";
+    
 
     card.innerHTML = `
       <div class="modal-header" style="
@@ -986,9 +987,9 @@ function showClipboardHistory(popup) {
     const closeBtn = card.querySelector("#closeHistoryBtn");
     closeBtn.onclick = () => {
       card.style.opacity = "0";
-      card.style.transform = "scale(0.95) translateY(-10px)";
-      setTimeout(() => card.remove(), 300);
-    };
+      card.style.transform = "translateX(-50%) translateY(-105%) scale(0.95)";
+      setTimeout(() => card.remove(), 200);
+    };    
 
     const clearBtn = card.querySelector("#clearHistoryBtn");
     clearBtn.onclick = (e) => {
