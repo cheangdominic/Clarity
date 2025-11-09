@@ -1,7 +1,6 @@
 let popupTimeout;
 let documentClickListener = null;
 let lastClipboardText = "";
-let lastCreatedHighlight = null;
 let hoverHideTimeout = null; // for hover-based menu hide
 let menuHovering = false; // track mouse over mini-menu
 
@@ -126,7 +125,6 @@ function makeModalDraggable(modal) {
 
   header.addEventListener("mousedown", (e) => {
     isDragging = true;
-    modal._highlight.style.backgroundColor = "#fbf719";
     const rect = modal.getBoundingClientRect();
     offsetX = e.clientX - rect.left;
     offsetY = e.clientY - rect.top;
@@ -136,21 +134,22 @@ function makeModalDraggable(modal) {
 
   document.addEventListener("mousemove", (e) => {
     if (!isDragging) return;
-    modal._highlight.style.backgroundColor = "#fbf719";
     modal.style.left = `${e.clientX - offsetX}px`;
     modal.style.top = `${e.clientY - offsetY}px`;
     modal.style.transform = "none";
   });
 
   document.addEventListener("mouseup", () => {
-    if (isDragging && modal._highlight)
-      modal._highlight.style.backgroundColor = "";
     isDragging = false;
     modal.style.transition = "opacity 0.2s ease, transform 0.2s ease";
     document.body.style.userSelect = "auto";
   });
 
-  header.addEventListener("mouseleave", () => {
+  modal.addEventListener("mouseenter", () => {
+    if (modal._highlight) modal._highlight.style.backgroundColor = "#fbf719";
+  });
+
+  modal.addEventListener("mouseleave", () => {
     if (modal._highlight) modal._highlight.style.backgroundColor = "";
   });
 }
@@ -277,6 +276,7 @@ function showHighlightPopup() {
     modal.style.left = `${window.scrollX + rect.left + rect.width / 2}px`;
     modal.style.transform = "translateX(-50%) translateY(-100%)";
     modal.style.opacity = "0";
+    modal.style.zIndex = "10000";
     requestAnimationFrame(() => (modal.style.opacity = "1"));
     try {
       const res = await fetch("http://localhost:5000/summarize", {
@@ -527,7 +527,20 @@ function showHighlightPopup() {
         // Replace the selected text with a hoverable span
         if (selection.rangeCount > 0) {
           const range = selection.getRangeAt(0);
-          range.deleteContents();
+          const selectedText = range.toString();
+
+          const leadingSpacesMatch = selectedText.match(/^(\s*)/);
+          const trailingSpacesMatch = selectedText.match(/(\s*)$/);
+
+          const leadingSpaces = leadingSpacesMatch ? leadingSpacesMatch[0] : "";
+          const trailingSpaces = trailingSpacesMatch
+            ? trailingSpacesMatch[0]
+            : "";
+
+          const coreText = selectedText.slice(
+            leadingSpaces.length,
+            selectedText.length - trailingSpaces.length
+          );
 
           const span = document.createElement("span");
           span.textContent = translated;
@@ -576,19 +589,29 @@ function showHighlightPopup() {
             tooltip.style.visibility = "hidden";
           });
 
-          range.insertNode(span);
+          const fragment = document.createDocumentFragment();
+          if (leadingSpaces)
+            fragment.appendChild(document.createTextNode(leadingSpaces));
+          fragment.appendChild(span);
+          if (trailingSpaces)
+            fragment.appendChild(document.createTextNode(trailingSpaces));
+
+          range.deleteContents();
+          range.insertNode(fragment);
         }
 
-        box.remove(); // close popup
+        box.remove();
       } catch (err) {
         console.error("Translation error:", err);
         output.innerText = "Error fetching translation.";
       }
     });
   });
+
   popup.querySelector("#viewHistoryBtn").addEventListener("click", (e) => {
     e.stopPropagation();
     e.preventDefault();
+
     showClipboardHistory(popup);
   });
 
@@ -601,12 +624,17 @@ function showHighlightPopup() {
 
     const range = selection.getRangeAt(0).cloneRange();
     const rectSel = range.getBoundingClientRect();
+    const popupRect = popup.getBoundingClientRect();
+    const historyCard = document.getElementById("clipboardHistoryCard");
 
-    showHighlightColorPicker(rectSel, (styleSpec) => {
+    if (historyCard) {
+      historyCard.remove();
+    }
+
+    showHighlightColorPicker(rectSel, popupRect, (styleSpec) => {
       try {
         const extracted = range.extractContents();
         const highlight = document.createElement("span");
-        // apply chosen color style
         highlight.style.backgroundColor = styleSpec.background;
         if (styleSpec.boxShadow)
           highlight.style.boxShadow = styleSpec.boxShadow;
@@ -621,6 +649,11 @@ function showHighlightPopup() {
         try {
           popup.remove();
         } catch (_) {}
+
+        if (historyCard) {
+          historyCard.remove();
+        }
+
         if (documentClickListener) {
           document.removeEventListener("click", documentClickListener);
           documentClickListener = null;
@@ -657,12 +690,20 @@ function showHighlightPopup() {
 function showClipboardHistory(popup) {
   const oldCard = document.getElementById("clipboardHistoryCard");
   if (oldCard) oldCard.remove();
+
+  const highlightsPanels = document.querySelectorAll("#highlightsPanel");
+  highlightsPanels.forEach((panel) => {
+    panel.remove();
+  });
+
   chrome.storage.local.get(["clipboard"], (result) => {
     const history = result.clipboard || [];
     const card = document.createElement("div");
     card.id = "clipboardHistoryCard";
     Object.assign(card.style, {
       position: "absolute",
+      background: "black",
+      color: "white",
       background: "black",
       color: "white",
       padding: "12px",
@@ -693,7 +734,12 @@ function showClipboardHistory(popup) {
     } else {
       card.innerHTML = `
         <div style="font-weight:bold;margin-bottom:12px;padding:8px;border-bottom:1px solid #eee;display:flex;justify-content:space-between;align-items:center;">
+        <div style="font-weight:bold;margin-bottom:12px;padding:8px;border-bottom:1px solid #eee;display:flex;justify-content:space-between;align-items:center;">
           <span>📋 Clipboard History</span>
+          <div style="display:flex;align-items:center;">
+            <button id="clearHistoryBtn" style="background:#ff5252;color:white;border:none;padding:4px 8px;border-radius:4px;font-size:11px;cursor:pointer;">Clear</button>
+            <button id="closeHistoryBtn" style="background:none;border:none;color:white;font-size:20px;cursor:pointer;line-height:1;padding:5px;margin-left:8px;">×</button>
+          </div>
           <div style="display:flex;align-items:center;">
             <button id="clearHistoryBtn" style="background:#ff5252;color:white;border:none;padding:4px 8px;border-radius:4px;font-size:11px;cursor:pointer;">Clear</button>
             <button id="closeHistoryBtn" style="background:none;border:none;color:white;font-size:20px;cursor:pointer;line-height:1;padding:5px;margin-left:8px;">×</button>
@@ -704,6 +750,7 @@ function showClipboardHistory(popup) {
       list.style.display = "flex";
       list.style.flexDirection = "column";
       list.style.gap = "8px";
+      list.style.color = "black";
       list.style.color = "black";
       history.slice(0, 10).forEach((item) => {
         const itemDiv = document.createElement("div");
@@ -766,6 +813,10 @@ function showClipboardHistory(popup) {
         e.stopPropagation();
         card.remove();
       });
+      card.querySelector("#closeHistoryBtn").addEventListener("click", (e) => {
+        e.stopPropagation();
+        card.remove();
+      });
     }
     document.body.appendChild(card);
     makeModalDraggable(card);
@@ -790,6 +841,11 @@ function tagToColor(tag) {
 function showHighlightsPanel(popup) {
   const existing = document.getElementById("highlightsPanel");
   if (existing) existing.remove();
+
+  const historyCard = document.getElementById("clipboardHistoryCard");
+  if (historyCard) {
+    historyCard.remove();
+  }
 
   chrome.storage.local.get(["highlights", "tagColors"], (result) => {
     const highlights = Array.isArray(result.highlights)
@@ -929,20 +985,61 @@ function showHighlightsPanel(popup) {
           openBtn.textContent = "Open";
           openBtn.style.fontSize = "11px";
           openBtn.style.border = "1px solid #ddd";
-          openBtn.style.background = "#fff";
+          openBtn.style.background = "#f7f7f7";
+          openBtn.style.color = "#333";
           openBtn.style.borderRadius = "6px";
           openBtn.style.padding = "4px 8px";
           openBtn.style.cursor = "pointer";
           openBtn.addEventListener("click", (e) => {
             e.stopPropagation();
-            window.open(item.url, "_blank");
+            if ((item.url || "") === location.href) {
+              const el = findHighlightByRecord(item);
+              if (el) {
+                try {
+                  el.scrollIntoView({
+                    behavior: "smooth",
+                    block: "center",
+                    inline: "nearest",
+                  });
+                } catch (_) {
+                  el.scrollIntoView();
+                }
+                flashHighlight(el);
+                showTagActionsMenu(el);
+              } else {
+                const recreated = findAndCreateHighlightByText(item.text, item);
+                if (recreated) {
+                  try {
+                    recreated.scrollIntoView({
+                      behavior: "smooth",
+                      block: "center",
+                      inline: "nearest",
+                    });
+                  } catch (_) {
+                    recreated.scrollIntoView();
+                  }
+                  flashHighlight(recreated);
+                  showTagActionsMenu(recreated);
+                } else {
+                  window.focus();
+                }
+              }
+            } else {
+              try {
+                chrome.storage?.local?.set({
+                  clarityPendingOpen: { ...item, ts: Date.now() },
+                });
+              } catch (_) {}
+              window.open(item.url, "_blank");
+            }
           });
 
           const copyBtn = document.createElement("button");
           copyBtn.textContent = "Copy";
           copyBtn.style.fontSize = "11px";
           copyBtn.style.border = "1px solid #ddd";
-          copyBtn.style.background = "#fff";
+          copyBtn.style.background = "#f7f7f7";
+          copyBtn.style.color = "#333";
           copyBtn.style.borderRadius = "6px";
           copyBtn.style.padding = "4px 8px";
           copyBtn.style.cursor = "pointer";
@@ -980,7 +1077,16 @@ function showHighlightsPanel(popup) {
         if (confirm("Clear all tagged highlights?")) {
           chrome.storage.local.set({ highlights: [] }, () => {
             panel.remove();
-            popup.remove();
+
+            const historyCard = document.getElementById("clipboardHistoryCard");
+            if (historyCard) {
+              historyCard.remove();
+            }
+
+            const popup = document.getElementById("highlightPopup");
+            if (popup) {
+              popup.remove();
+            }
           });
         }
       });
@@ -1012,7 +1118,7 @@ function showTagActionsMenu(anchorEl) {
   menu.style.alignItems = "center";
   menu.style.gap = "8px";
 
-  const mkBtn = (label) => {
+  const makeBtn = (label) => {
     const btn = document.createElement("button");
     btn.textContent = label;
     btn.style.background = "none";
@@ -1055,12 +1161,20 @@ function showTagActionsMenu(anchorEl) {
     });
   };
 
-  chrome.storage.local.get(["tagColors"], (res) => {
-    renderBadges(res.tagColors || {});
-  });
+  try {
+    chrome.storage?.local?.get(["tagColors"], (res) => {
+      try {
+        renderBadges((res && res.tagColors) || {});
+      } catch (_) {
+        renderBadges({});
+      }
+    });
+  } catch (_) {
+    renderBadges({});
+  }
 
-  const createTagBtn = mkBtn("Create Tag");
-  const openTagsBtn = mkBtn("Tags");
+  const createTagBtn = makeBtn("Create Tag");
+  const openTagsBtn = makeBtn("Tags");
 
   createTagBtn.addEventListener("click", () => {
     const existing = getHighlightTags(anchorEl);
@@ -1073,7 +1187,12 @@ function showTagActionsMenu(anchorEl) {
     const uniqueTags = Array.from(new Set(tags));
     setHighlightTags(anchorEl, uniqueTags);
 
+    if (!anchorEl.dataset.clarityId) {
+      anchorEl.dataset.clarityId = generateHighlightId();
+    }
+
     const record = {
+      id: anchorEl.dataset.clarityId || "",
       tags: uniqueTags,
       tag: uniqueTags[0] || "",
       text: anchorEl.textContent || "",
@@ -1140,25 +1259,134 @@ function showTagActionsMenu(anchorEl) {
   });
 }
 
-function getHighlightFromSelection() {
-  const sel = window.getSelection();
-  if (!sel || !sel.rangeCount) return null;
-  const node = sel.getRangeAt(0).startContainer;
-  return findAncestorHighlight(node);
+function generateHighlightId() {
+  return `cl-${Date.now().toString(36)}-${Math.random()
+    .toString(36)
+    .slice(2, 8)}`;
 }
 
-function findAncestorHighlight(node) {
-  let el = node && node.nodeType === 1 ? node : node && node.parentElement;
-  while (el) {
-    if (el.classList && el.classList.contains("clarity-highlight")) return el;
-    el = el.parentElement;
+function normalizeText(s) {
+  return (s || "").replace(/\s+/g, " ").trim();
+}
+
+function findHighlightByRecord(item) {
+  try {
+    const wantId = item && item.id;
+    if (wantId) {
+      const nodesById = Array.from(
+        document.querySelectorAll(".clarity-highlight")
+      );
+      const byId = nodesById.find(
+        (n) => n.dataset && n.dataset.clarityId === wantId
+      );
+      if (byId) return byId;
+    }
+    const wantText = normalizeText(item && item.text);
+    const wantTag =
+      (item && (item.tag || (Array.isArray(item.tags) && item.tags[0]))) || "";
+    const nodes = Array.from(document.querySelectorAll(".clarity-highlight"));
+
+    let candidates = nodes.filter(
+      (n) => normalizeText(n.textContent) === wantText
+    );
+    if (!candidates.length && wantText) {
+      candidates = nodes.filter((n) => {
+        const t = normalizeText(n.textContent);
+        return t.includes(wantText) || wantText.includes(t);
+      });
+    }
+    if (wantTag) {
+      const filtered = candidates.filter((n) =>
+        getHighlightTags(n).includes(wantTag)
+      );
+      if (filtered.length) candidates = filtered;
+    }
+    return candidates[0] || null;
+  } catch (_) {
+    return null;
+  }
+}
+
+function flashHighlight(el) {
+  if (!el) return;
+  const prevBoxShadow = el.style.boxShadow;
+  const prevTransition = el.style.transition;
+  el.style.transition = "box-shadow 0.25s ease";
+  el.style.boxShadow =
+    "0 0 0 3px rgba(255,165,0,0.9), 0 0 10px rgba(255,165,0,0.6)";
+  setTimeout(() => {
+    el.style.boxShadow = prevBoxShadow || "";
+    el.style.transition = prevTransition || "";
+  }, 1200);
+}
+
+function findAndCreateHighlightByText(text, record) {
+  if (!text || typeof text !== "string") return null;
+
+  const tryWrap = (node, start, len) => {
+    try {
+      const range = document.createRange();
+      range.setStart(node, start);
+      range.setEnd(node, start + len);
+      const span = document.createElement("span");
+      span.className = "clarity-highlight";
+      span.style.backgroundColor =
+        record && record.color ? record.color : "hsla(52, 95%, 62%, 0.35)";
+      span.style.borderRadius = "2px";
+      span.style.padding = "0 2px";
+      span.dataset.clarityId = (record && record.id) || generateHighlightId();
+      if (record && (record.tags || record.tag)) {
+        const tags =
+          Array.isArray(record.tags) && record.tags.length
+            ? record.tags
+            : record.tag
+            ? [record.tag]
+            : [];
+        setHighlightTags(span, tags);
+      }
+      range.surroundContents(span);
+      return span;
+    } catch (_) {
+      return null;
+    }
+  };
+
+  const mkFilter = () => ({
+    acceptNode(node) {
+      if (!node || !node.nodeValue) return NodeFilter.FILTER_SKIP;
+      const p = node.parentElement;
+      if (p && p.closest && p.closest(".clarity-highlight"))
+        return NodeFilter.FILTER_SKIP;
+      return node.nodeValue.trim().length
+        ? NodeFilter.FILTER_ACCEPT
+        : NodeFilter.FILTER_SKIP;
+    },
+  });
+
+  const walker = document.createTreeWalker(
+    document.body,
+    NodeFilter.SHOW_TEXT,
+    mkFilter()
+  );
+  while (walker.nextNode()) {
+    const n = walker.currentNode;
+    const i = n.nodeValue.indexOf(text);
+    if (i !== -1) return tryWrap(n, i, text.length);
+  }
+
+  const lower = text.toLowerCase();
+  const walker2 = document.createTreeWalker(
+    document.body,
+    NodeFilter.SHOW_TEXT,
+    mkFilter()
+  );
+  while (walker2.nextNode()) {
+    const n = walker2.currentNode;
+    const v = n.nodeValue;
+    const i = (v || "").toLowerCase().indexOf(lower);
+    if (i !== -1) return tryWrap(n, i, text.length);
   }
   return null;
-}
-
-function getLastHighlightInDocument() {
-  const nodes = document.querySelectorAll(".clarity-highlight");
-  return nodes.length ? nodes[nodes.length - 1] : null;
 }
 
 function scheduleHoverMenuHide(anchorEl) {
@@ -1183,17 +1411,17 @@ function scheduleHoverMenuHide(anchorEl) {
   }, 180);
 }
 
-function showHighlightColorPicker(rect, onPick, onCancel) {
+function showHighlightColorPicker(selectionRect, popupRect, onPick, onCancel) {
   const id = "highlightColorPicker";
   document.getElementById(id)?.remove();
   const picker = document.createElement("div");
   picker.id = id;
   Object.assign(picker.style, {
     position: "absolute",
-    top: `${window.scrollY + rect.top - 8}px`,
-    left: `${window.scrollX + rect.left + rect.width / 2}px`,
+    top: `${window.scrollY + popupRect.top - 8}px`,
+    left: `${window.scrollX + selectionRect.left + selectionRect.width / 2}px`,
     transform: "translateX(-50%) translateY(-100%)",
-    background: "#111",
+    background: "#333",
     color: "#fff",
     padding: "8px 10px",
     borderRadius: "10px",
@@ -1262,12 +1490,21 @@ function showHighlightColorPicker(rect, onPick, onCancel) {
     try {
       picker.remove();
     } catch (_) {}
+
     onPick({ background: rgba, boxShadow: `inset 0 0 0 1px ${border}` });
   });
   customWrap.appendChild(input);
   picker.appendChild(customWrap);
 
   document.body.appendChild(picker);
+
+  try {
+    const pr = picker.getBoundingClientRect();
+    if (pr.top < 8) {
+      picker.style.top = `${window.scrollY + selectionRect.bottom + 8}px`;
+      picker.style.transform = "translateX(-50%) translateY(0)";
+    }
+  } catch (_) {}
 
   const close = (e) => {
     if (!picker.contains(e.target)) {
@@ -1304,6 +1541,9 @@ function setHighlightTags(el, tags) {
     new Set((tags || []).map((t) => t.trim()).filter(Boolean))
   );
   if (!el.dataset) el.dataset = {};
+  if (!el.dataset.clarityId) {
+    el.dataset.clarityId = generateHighlightId();
+  }
   el.dataset.tags = unique.join(",");
   el.title = unique.length ? `Tags: ${unique.join(", ")}` : "";
   el.classList.add("clarity-highlight");
@@ -1347,3 +1587,83 @@ document.addEventListener("mouseout", (e) => {
   if (el.contains(e.relatedTarget)) return;
   scheduleHoverMenuHide(el);
 });
+
+(function rehydrateHighlightsForPage() {
+  try {
+    chrome.storage?.local?.get(["highlights"], (res) => {
+      const list = res && Array.isArray(res.highlights) ? res.highlights : [];
+      if (!list.length) return;
+      let dirty = false;
+      list.forEach((rec) => {
+        try {
+          if (!rec || (rec.url || "") !== location.href) return;
+          let el = findHighlightByRecord(rec);
+          if (!el) {
+            el = findAndCreateHighlightByText(rec.text, rec);
+          }
+          if (el) {
+            if (rec.tags || rec.tag) {
+              const want =
+                Array.isArray(rec.tags) && rec.tags.length
+                  ? rec.tags
+                  : rec.tag
+                  ? [rec.tag]
+                  : [];
+              const have = getHighlightTags(el);
+              const need = want.filter((t) => !have.includes(t));
+              if (need.length) setHighlightTags(el, have.concat(need));
+            }
+            if (!rec.id && el.dataset && el.dataset.clarityId) {
+              rec.id = el.dataset.clarityId;
+              dirty = true;
+            }
+          }
+        } catch (_) {}
+      });
+      if (dirty) {
+        try {
+          chrome.storage.local.set({ highlights: list });
+        } catch (_) {}
+      }
+    });
+  } catch (_) {
+    // ignore if extension context not ready
+  }
+})();
+
+(function checkPendingOpen() {
+  try {
+    chrome.storage?.local?.get(["clarityPendingOpen"], (res) => {
+      const pending = res && res.clarityPendingOpen;
+      if (!pending) return;
+      if ((pending.url || "") !== location.href) return;
+      const ts = pending.ts || 0;
+      if (Date.now() - ts > 60000) {
+        try {
+          chrome.storage.local.remove("clarityPendingOpen");
+        } catch (_) {}
+        return;
+      }
+      let el = findHighlightByRecord(pending);
+      if (!el) el = findAndCreateHighlightByText(pending.text, pending);
+      if (el) {
+        try {
+          el.scrollIntoView({
+            behavior: "smooth",
+            block: "center",
+            inline: "nearest",
+          });
+        } catch (_) {
+          el.scrollIntoView();
+        }
+        flashHighlight(el);
+        showTagActionsMenu(el);
+      }
+      try {
+        chrome.storage.local.remove("clarityPendingOpen");
+      } catch (_) {}
+    });
+  } catch (_) {
+    // ignore; extension context may be unavailable transiently
+  }
+})();
