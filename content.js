@@ -129,14 +129,34 @@ function makeModalDraggable(modal) {
     offsetX = e.clientX - rect.left;
     offsetY = e.clientY - rect.top;
     modal.style.transition = "none";
+    modal.style.transform = "none";
     document.body.style.userSelect = "none";
   });
 
   document.addEventListener("mousemove", (e) => {
     if (!isDragging) return;
-    modal.style.left = `${e.clientX - offsetX}px`;
-    modal.style.top = `${e.clientY - offsetY}px`;
-    modal.style.transform = "none";
+
+    // --- New Boundary Logic ---
+    let newX = e.clientX - offsetX;
+    let newY = e.clientY - offsetY;
+
+    // Get the dimensions of the modal
+    const modalRect = modal.getBoundingClientRect();
+
+    // Clamp X position (left edge at 0, right edge at window width - modal width)
+    newX = Math.max(0, Math.min(newX, window.innerWidth - modalRect.width));
+
+    // Clamp Y position (top edge at 0, bottom edge at window height - modal height)
+    newY = Math.max(0, Math.min(newY, window.innerHeight - modalRect.height));
+
+    // Apply clamped position
+    modal.style.left = `${newX}px`;
+    modal.style.top = `${newY}px`;
+    // --- End Boundary Logic ---
+
+    // modal.style.left = `${e.clientX - offsetX}px`;
+    // modal.style.top = `${e.clientY - offsetY}px`;
+    // modal.style.transform = "none";
   });
 
   document.addEventListener("mouseup", () => {
@@ -167,7 +187,7 @@ function createModal(id, title) {
     overflow: "hidden",
     display: "none",
     fontFamily: "system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif",
-    position: "absolute",
+    position: "fixed",
     transition: "opacity 0.2s ease, transform 0.2s ease",
   });
   modal.innerHTML = `
@@ -733,13 +753,8 @@ function showClipboardHistory(popup) {
       `;
     } else {
       card.innerHTML = `
-        <div style="font-weight:bold;margin-bottom:12px;padding:8px;border-bottom:1px solid #eee;display:flex;justify-content:space-between;align-items:center;">
-        <div style="font-weight:bold;margin-bottom:12px;padding:8px;border-bottom:1px solid #eee;display:flex;justify-content:space-between;align-items:center;">
+        <div class="modal-header" style="font-weight:bold;margin-bottom:12px;padding:8px;border-bottom:1px solid #eee;display:flex;justify-content:space-between;align-items:center;">
           <span>📋 Clipboard History</span>
-          <div style="display:flex;align-items:center;">
-            <button id="clearHistoryBtn" style="background:#ff5252;color:white;border:none;padding:4px 8px;border-radius:4px;font-size:11px;cursor:pointer;">Clear</button>
-            <button id="closeHistoryBtn" style="background:none;border:none;color:white;font-size:20px;cursor:pointer;line-height:1;padding:5px;margin-left:8px;">×</button>
-          </div>
           <div style="display:flex;align-items:center;">
             <button id="clearHistoryBtn" style="background:#ff5252;color:white;border:none;padding:4px 8px;border-radius:4px;font-size:11px;cursor:pointer;">Clear</button>
             <button id="closeHistoryBtn" style="background:none;border:none;color:white;font-size:20px;cursor:pointer;line-height:1;padding:5px;margin-left:8px;">×</button>
