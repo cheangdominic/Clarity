@@ -1,6 +1,6 @@
 <p align="center">
   <a href="#">
-    <img src="images/ClarityHighlightLogoTextInverted.png" width="200" alt="Clarity Logo">
+    <img src="images/ClarityHighlightLogoTextInverted_V2.png" width="200" alt="Clarity Logo">
   </a>
 </p>
 
