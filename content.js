@@ -255,35 +255,28 @@ function makeModalDraggable(modal) {
   };
 }
 
-// Ensure a modal opens fully within the viewport near a given popup element.
 function positionModalNearPopup(modal, popup) {
-  const margin = 12; // min distance from edges
+  const margin = 12;
 
-  // Prepare for measurement and fixed positioning
   modal.style.position = "fixed";
   modal.style.transform = "none";
   modal.style.opacity = "0";
   modal.style.visibility = "hidden";
 
-  // Defer until layout is ready so measurements are accurate
   requestAnimationFrame(() => {
     const popupRect = popup.getBoundingClientRect();
     const modalRect = modal.getBoundingClientRect();
     const viewportWidth = window.innerWidth;
     const viewportHeight = window.innerHeight;
 
-    // Prefer placing above the popup
     let top = popupRect.top - margin - modalRect.height;
-    // If not enough space above, place below
     if (top < margin) top = popupRect.bottom + margin;
 
-    // Clamp within viewport vertically
     top = Math.max(
       margin,
       Math.min(top, viewportHeight - modalRect.height - margin)
     );
 
-    // Center horizontally over the popup, then clamp
     let left = popupRect.left + popupRect.width / 2 - modalRect.width / 2;
     left = Math.max(
       margin,
@@ -367,7 +360,6 @@ function createModal(id, title) {
 
   modal.addEventListener("mouseleave", () => {
     if (currentHighlight) {
-      // Restore original styles
       currentHighlight.style.backgroundColor =
         currentHighlight._originalBackground || "";
       currentHighlight.style.boxShadow =
@@ -416,7 +408,6 @@ function showHighlightPopup() {
   }
 
   const range = selection.getRangeAt(0);
-  const highlightSpan = wrapSelectionInSpan(range);
 
   const rect = range.getBoundingClientRect();
   const popup = document.createElement("div");
@@ -468,7 +459,7 @@ popup.style.transform = "none";
   
   popup.querySelector("#summarizeBtn").onclick = async () => {
     const modal = createModal(`summaryModal-${Date.now()}`, "Summary");
-    modal.setHighlight(highlightSpan);
+    modal.setHighlight(null);
     const content = modal.querySelector(".modal-content");
     showLoadingSpinner(content);
     modal.style.display = "block";
@@ -505,7 +496,7 @@ popup.style.transform = "none";
 
   popup.querySelector("#notesBtn").onclick = async () => {
     const modal = createModal(`notesModal-${Date.now()}`, "Notes");
-    modal.setHighlight(highlightSpan);
+    modal.setHighlight(null);
     const content = modal.querySelector(".modal-content");
     showLoadingSpinner(content);
     modal.style.display = "block";
@@ -864,8 +855,6 @@ function showClipboardHistory(popup) {
       overflowY: "auto",
       padding: "12px",
     });
-    // Position safely near the toolbar popup, clamped to viewport
-    // Exact placement is handled after insertion by positionModalNearPopup
     if (history.length === 0) {
       card.innerHTML = `
         <div style="text-align:center;padding:20px;color:#666;">
