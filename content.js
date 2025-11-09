@@ -381,7 +381,7 @@ function showHighlightPopup() {
   document.body.appendChild(popup);
   requestAnimationFrame(() => {
     popup.style.opacity = "1";
-    popup.style.transform = "translateX(-50%) translateY(0)";
+    popup.style.transform = "translateX(-50%) translateY(-17.5%)";
   });
   popup.querySelector("#summarizeBtn").onclick = async () => {
     const modal = createModal(`summaryModal-${Date.now()}`, "Summary");
@@ -786,7 +786,7 @@ function showHighlightPopup() {
       }
     };
     document.addEventListener("click", documentClickListener);
-  }, 300);
+  }, 150);
 }
 
 function showClipboardHistory(popup) {
