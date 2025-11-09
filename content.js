@@ -1130,6 +1130,60 @@ function flashHighlight(el) {
   }, 1200);
 }
 
+// Create a highlight from plain page text if the original element is gone.
+function findAndCreateHighlightByText(text, record) {
+  if (!text || typeof text !== "string") return null;
+
+  const tryWrap = (node, start, len) => {
+    try {
+      const range = document.createRange();
+      range.setStart(node, start);
+      range.setEnd(node, start + len);
+      const span = document.createElement("span");
+      span.className = "clarity-highlight";
+      span.style.backgroundColor = record && record.color ? record.color : "hsla(52, 95%, 62%, 0.35)";
+      span.style.borderRadius = "2px";
+      span.style.padding = "0 2px";
+      span.dataset.clarityId = (record && record.id) || generateHighlightId();
+      if (record && (record.tags || record.tag)) {
+        const tags = Array.isArray(record.tags) && record.tags.length ? record.tags : (record.tag ? [record.tag] : []);
+        setHighlightTags(span, tags);
+      }
+      range.surroundContents(span);
+      return span;
+    } catch (_) {
+      return null;
+    }
+  };
+
+  const mkFilter = () => ({
+    acceptNode(node) {
+      if (!node || !node.nodeValue) return NodeFilter.FILTER_SKIP;
+      const p = node.parentElement;
+      if (p && p.closest && p.closest('.clarity-highlight')) return NodeFilter.FILTER_SKIP;
+      return node.nodeValue.trim().length ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_SKIP;
+    },
+  });
+
+  // Case-sensitive search
+  const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, mkFilter());
+  while (walker.nextNode()) {
+    const n = walker.currentNode;
+    const i = n.nodeValue.indexOf(text);
+    if (i !== -1) return tryWrap(n, i, text.length);
+  }
+  // Case-insensitive fallback
+  const lower = text.toLowerCase();
+  const walker2 = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, mkFilter());
+  while (walker2.nextNode()) {
+    const n = walker2.currentNode;
+    const v = n.nodeValue;
+    const i = (v || '').toLowerCase().indexOf(lower);
+    if (i !== -1) return tryWrap(n, i, text.length);
+  }
+  return null;
+}
+
 function scheduleHoverMenuHide(anchorEl) {
   if (hoverHideTimeout) clearTimeout(hoverHideTimeout);
   hoverHideTimeout = setTimeout(() => {
@@ -1329,3 +1383,67 @@ document.addEventListener("mouseout", (e) => {
   if (el.contains(e.relatedTarget)) return;
   scheduleHoverMenuHide(el);
 });
+
+// Rehydrate all saved highlights that belong to this page
+(function rehydrateHighlightsForPage() {
+  try {
+    chrome.storage?.local?.get(["highlights"], (res) => {
+      const list = (res && Array.isArray(res.highlights)) ? res.highlights : [];
+      if (!list.length) return;
+      let dirty = false;
+      list.forEach((rec) => {
+        try {
+          if (!rec || (rec.url || "") !== location.href) return;
+          let el = findHighlightByRecord(rec);
+          if (!el) {
+            el = findAndCreateHighlightByText(rec.text, rec);
+          }
+          if (el) {
+            // Ensure tags and id are applied
+            if (rec.tags || rec.tag) {
+              const want = Array.isArray(rec.tags) && rec.tags.length ? rec.tags : (rec.tag ? [rec.tag] : []);
+              const have = getHighlightTags(el);
+              const need = want.filter((t) => !have.includes(t));
+              if (need.length) setHighlightTags(el, have.concat(need));
+            }
+            if (!rec.id && el.dataset && el.dataset.clarityId) {
+              rec.id = el.dataset.clarityId;
+              dirty = true;
+            }
+          }
+        } catch (_) {}
+      });
+      if (dirty) {
+        try { chrome.storage.local.set({ highlights: list }); } catch (_) {}
+      }
+    });
+  } catch (_) {
+    // ignore if extension context not ready
+  }
+})();
+
+// Rehydrate and focus a highlight if we navigated here from the Tags panel
+(function checkPendingOpen() {
+  try {
+    chrome.storage?.local?.get(["clarityPendingOpen"], (res) => {
+      const pending = res && res.clarityPendingOpen;
+      if (!pending) return;
+      if ((pending.url || "") !== location.href) return;
+      const ts = pending.ts || 0;
+      if (Date.now() - ts > 60000) {
+        try { chrome.storage.local.remove("clarityPendingOpen"); } catch (_) {}
+        return;
+      }
+      let el = findHighlightByRecord(pending);
+      if (!el) el = findAndCreateHighlightByText(pending.text, pending);
+      if (el) {
+        try { el.scrollIntoView({ behavior: "smooth", block: "center", inline: "nearest" }); } catch (_) { el.scrollIntoView(); }
+        flashHighlight(el);
+        showTagActionsMenu(el);
+      }
+      try { chrome.storage.local.remove("clarityPendingOpen"); } catch (_) {}
+    });
+  } catch (_) {
+    // ignore; extension context may be unavailable transiently
+  }
+})();
