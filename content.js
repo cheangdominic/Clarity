@@ -322,7 +322,7 @@ function showHighlightPopup() {
   document.body.appendChild(popup);
   requestAnimationFrame(() => {
     popup.style.opacity = "1";
-    popup.style.transform = "translateX(-50%) translateY(0)";
+    popup.style.transform = "translateX(-50%) translateY(-17.5%)";
   });
 
   popup.querySelector("#summarizeBtn").onclick = async () => {
@@ -652,18 +652,18 @@ function showHighlightPopup() {
       ) {
         if (historyCard) {
           try { historyCard.classList.add("clarity-exit"); } catch (_) {}
-          setTimeout(() => { try { historyCard.remove(); } catch (_) {} }, 170);
+          setTimeout(() => { try { historyCard.remove(); } catch (_) {} }, 100);
         }
         if (highlightsPanel) {
           try { highlightsPanel.classList.add("clarity-exit"); } catch (_) {}
-          setTimeout(() => { try { highlightsPanel.remove(); } catch (_) {} }, 170);
+          setTimeout(() => { try { highlightsPanel.remove(); } catch (_) {} }, 100);
         }
         document.removeEventListener("click", documentClickListener);
         documentClickListener = null;
       }
     };
     document.addEventListener("click", documentClickListener);
-  }, 300);
+  }, 150);
 }
 
 function showClipboardHistory(popup) {
