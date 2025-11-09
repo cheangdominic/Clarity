@@ -226,9 +226,52 @@ function makeModalDraggable(modal) {
   };
 }
 
+// Ensure a modal opens fully within the viewport near a given popup element.
+function positionModalNearPopup(modal, popup) {
+  const margin = 12; // min distance from edges
+
+  // Prepare for measurement and fixed positioning
+  modal.style.position = "fixed";
+  modal.style.transform = "none";
+  modal.style.opacity = "0";
+  modal.style.visibility = "hidden";
+
+  // Defer until layout is ready so measurements are accurate
+  requestAnimationFrame(() => {
+    const popupRect = popup.getBoundingClientRect();
+    const modalRect = modal.getBoundingClientRect();
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+
+    // Prefer placing above the popup
+    let top = popupRect.top - margin - modalRect.height;
+    // If not enough space above, place below
+    if (top < margin) top = popupRect.bottom + margin;
+
+    // Clamp within viewport vertically
+    top = Math.max(
+      margin,
+      Math.min(top, viewportHeight - modalRect.height - margin)
+    );
+
+    // Center horizontally over the popup, then clamp
+    let left = popupRect.left + popupRect.width / 2 - modalRect.width / 2;
+    left = Math.max(
+      margin,
+      Math.min(left, viewportWidth - modalRect.width - margin)
+    );
+
+    modal.style.top = `${Math.round(top)}px`;
+    modal.style.left = `${Math.round(left)}px`;
+    modal.style.visibility = "visible";
+    modal.style.opacity = "1";
+  });
+}
+
 function createModal(id, title) {
   const modal = document.createElement("div");
   modal.id = id;
+
   Object.assign(modal.style, {
     width: "340px",
     maxWidth: "90%",
@@ -236,7 +279,6 @@ function createModal(id, title) {
     borderRadius: "10px",
     boxShadow: "0 4px 20px rgba(0,0,0,0.25)",
     zIndex: "999999",
-    overflow: "hidden",
     display: "none",
     fontFamily: "system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif",
     position: "fixed",
@@ -244,6 +286,7 @@ function createModal(id, title) {
     opacity: "0",
     transform: "scale(0.95) translateY(-10px)",
   });
+
   modal.innerHTML = `
    <div class="modal-header" style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;background:#333;color:#fff;">
      <span style="font-weight:600;">${title}</span>
@@ -253,9 +296,10 @@ function createModal(id, title) {
       </button>
       <button class="close-btn" style="background:none;border:none;color:#fff;font-size:20px;cursor:pointer;padding:0;line-height:1;">×</button>
       </div>
-   </div>
-   <div class="modal-content" style="padding:14px 16px;max-height:220px;overflow:auto;font-size:14px;line-height:1.45;color:#333;"></div>
+    </div>
+    <div class="modal-content" style="padding:14px 16px;max-height:220px;overflow:auto;font-size:14px;line-height:1.45;color:#333;"></div>
   `;
+
   document.body.appendChild(modal);
 
   let currentHighlight = null;
@@ -303,9 +347,8 @@ function createModal(id, title) {
   });
 
   const content = modal.querySelector(".modal-content");
-  modal.querySelector(".collapse-btn").onclick = (e) => {
+  modal.querySelector(".collapse-btn").onclick = () => {
     const icon = modal.querySelector(".collapse-icon");
-
     if (modal.classList.contains("collapsed")) {
       modal.classList.remove("collapsed");
       content.style.maxHeight = "220px";
@@ -391,18 +434,10 @@ function showHighlightPopup() {
     const content = modal.querySelector(".modal-content");
     showLoadingSpinner(content);
     modal.style.display = "block";
-    const rect = popup.getBoundingClientRect();
-
-    modal.style.position = "absolute";
-
-    modal.style.top = `${rect.top - 12}px`;
-    modal.style.left = `${rect.left + rect.width / 2}px`;
-    modal.style.transform = "translateX(-50%) translateY(-100%)";
-
-    modal.style.opacity = "0";
     modal.style.zIndex = "1000000";
     modal.style.fontFamily = `Segoe UI`;
     requestAnimationFrame(() => (modal.style.opacity = "1"));
+    positionModalNearPopup(modal, popup);
 
     try {
       const res = await fetch("http://localhost:5000/summarize", {
@@ -417,23 +452,29 @@ function showHighlightPopup() {
     }
   };
 
+  popup.querySelectorAll("button").forEach((btn) => {
+    btn.addEventListener("mouseenter", () => (btn.style.background = "#555"));
+    btn.addEventListener("mouseleave", () => (btn.style.background = "none"));
+
+    btn.addEventListener("click", () => {
+      btn.style.transform = "scale(0.95)";
+      btn.style.transition = "transform 0.1s ease";
+      setTimeout(() => {
+        btn.style.transform = "scale(1)";
+      }, 100);
+    });
+  });
+
   popup.querySelector("#notesBtn").onclick = async () => {
     const modal = createModal(`notesModal-${Date.now()}`, "Notes");
     modal.setHighlight(highlightSpan);
     const content = modal.querySelector(".modal-content");
     showLoadingSpinner(content);
     modal.style.display = "block";
-    const rect = popup.getBoundingClientRect();
-    modal.style.position = "absolute";
-
-    modal.style.top = `${rect.top - 12}px`;
-    modal.style.left = `${rect.left + rect.width / 2}px`;
-    modal.style.transform = "translateX(-50%) translateY(-100%)";
-
-    modal.style.opacity = "0";
     modal.style.zIndex = "1000000";
     modal.style.fontFamily = `Segoe UI`;
     requestAnimationFrame(() => (modal.style.opacity = "1"));
+    positionModalNearPopup(modal, popup);
     try {
       const res = await fetch("http://localhost:5000/notes", {
         method: "POST",
