@@ -16,6 +16,83 @@ setInterval(async () => {
   } catch {}
 }, 500);
 
+function inlineMarkdown(s) {
+  if (!s || typeof s !== "string") return "";
+  s = s.replace(/`([^`]+)`/g, (_, p1) => `<code>${p1}</code>`);
+  s = s.replace(/\*\*([^*]+)\*\*/g, (_, p1) => `<strong>${p1}</strong>`);
+  s = s.replace(/\*([^*]+)\*/g, (_, p1) => `<em>${p1}</em>`);
+  s = s.replace(
+    /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g,
+    (_, p1, p2) =>
+      `<a href="${p2}" target="_blank" rel="noopener noreferrer">${p1}</a>`
+  );
+
+  return s;
+}
+
+
+function escapeHtml(text) {
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+function markdownToHtml(md) {
+  md = escapeHtml(md);
+  const lines = md.split(/\r?\n/);
+  let html = "";
+
+  function nextNonEmptyIndex(i) {
+    for (let j = i + 1; j < lines.length; j++) {
+      if (lines[j].trim().length > 0) return j;
+    }
+    return -1;
+  }
+
+  for (let i = 0; i < lines.length; i++) {
+    let line = lines[i].trim();
+    if (!line) continue;
+
+    const h = line.match(/^(#{1,3})\s+(.*)$/);
+    if (h) {
+      const level = Math.min(3, h[1].length);
+      html += `<h${level} style="margin:10px 0 6px;font-weight:700;color:#111;">${inlineMarkdown(
+        h[2]
+      )}</h${level}>`;
+      continue;
+    }
+
+    const isBullet = /^[-*•]\s+/.test(line);
+    const nextIdx = nextNonEmptyIndex(i);
+    const nextIsBullet =
+      nextIdx !== -1 && /^[-*•]\s+/.test(lines[nextIdx].trim());
+
+    if (!isBullet && nextIsBullet) {
+      html += `<p style="margin:10px 0 6px;font-weight:700;color:#111;">${inlineMarkdown(
+        line
+      )}</p>`;
+      continue;
+    }
+
+    if (isBullet) {
+      const content = line.replace(/^[-*•]\s+/, "");
+      html += `<p style="margin:4px 0 4px 16px;line-height:1.5;color:#222;">• ${inlineMarkdown(
+        content
+      )}</p>`;
+      continue;
+    }
+
+    html += `<p style="margin:8px 0;line-height:1.6;color:#222;">${inlineMarkdown(
+      line
+    )}</p>`;
+  }
+
+  return html || "<p style='color:#666;'>No content</p>";
+}
+
 function showLoadingSpinner(container) {
   container.innerHTML = `
     <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100px;color:#666;">
@@ -211,16 +288,156 @@ function showHighlightPopup() {
         body: JSON.stringify({ text: selectedText }),
       });
       const data = await res.json();
-      content.innerHTML = data.notes || "No notes available.";
+      content.innerHTML = markdownToHtml(data.notes) || "No notes available.";
     } catch {
       content.innerHTML = `<p style="color:#a00;">Failed to fetch notes.</p>`;
     }
   };
 
-  popup.querySelector("#translateBtn").addEventListener("click", () => {
-    alert("Translate: " + selectedText);
+  popup.querySelector("#translateBtn").addEventListener("click", async () => {
+    const selection = window.getSelection();
+    const selectedText = selection.toString().trim();
+    if (!selectedText) return;
+  
+    const oldBox = document.getElementById("centerBox");
+    if (oldBox) oldBox.remove();
+  
+    const box = document.createElement("div");
+    box.id = "centerBox";
+    Object.assign(box.style, {
+      position: "fixed",
+      top: "50%",
+      left: "50%",
+      transform: "translate(-50%, -50%)",
+      background: "#333",
+      color: "#fff",
+      padding: "20px 30px",
+      borderRadius: "12px",
+      boxShadow: "0 4px 10px rgba(0,0,0,0.3)",
+      zIndex: "1000000",
+      fontSize: "16px",
+      textAlign: "center",
+    });
+  
+    const title = document.createElement("div");
+    title.innerText = "Select language:";
+    title.style.marginBottom = "10px";
+    box.appendChild(title);
+  
+    const select = document.createElement("select");
+    Object.assign(select.style, {
+      padding: "6px",
+      borderRadius: "6px",
+      border: "none",
+      marginBottom: "10px",
+      fontSize: "14px",
+      cursor: "pointer",
+    });
+  
+    const languages = {
+      en: "English",
+      es: "Spanish",
+      fr: "French",
+      de: "German",
+      it: "Italian",
+      pt: "Portuguese",
+      ja: "Japanese",
+      ko: "Korean",
+      zh: "Chinese",
+      ar: "Arabic",
+    };
+  
+    for (const [code, name] of Object.entries(languages)) {
+      const opt = document.createElement("option");
+      opt.value = code;
+      opt.textContent = name;
+      select.appendChild(opt);
+    }
+    box.appendChild(select);
+  
+    const translateBtn = document.createElement("button");
+    translateBtn.innerText = "Translate";
+    Object.assign(translateBtn.style, {
+      marginTop: "10px",
+      padding: "6px 12px",
+      border: "none",
+      borderRadius: "5px",
+      background: "#555",
+      color: "#fff",
+      cursor: "pointer",
+    });
+    box.appendChild(document.createElement("br"));
+    box.appendChild(translateBtn);
+  
+    const output = document.createElement("div");
+    output.style.marginTop = "15px";
+    output.style.fontSize = "15px";
+    output.innerText = "";
+    box.appendChild(output);
+  
+    const closeBtn = document.createElement("button");
+    closeBtn.innerText = "Close";
+    Object.assign(closeBtn.style, {
+      marginTop: "10px",
+      padding: "5px 10px",
+      border: "none",
+      borderRadius: "5px",
+      cursor: "pointer",
+      background: "#777",
+      color: "#fff",
+    });
+    closeBtn.addEventListener("click", () => box.remove());
+    box.appendChild(document.createElement("br"));
+    box.appendChild(closeBtn);
+  
+    document.body.appendChild(box);
+  
+    translateBtn.addEventListener("click", async () => {
+      const targetLang = select.value;
+      output.innerText = "Translating...";
+      try {
+        const res = await fetch("http://localhost:5000/translate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            text: selectedText,
+            target: targetLang,
+          }),
+        });
+        if (!res.ok) throw new Error("Translation request failed");
+        const data = await res.json();
+        const translated = data.translatedText || "Translation failed.";
+  
+        // Replace the selected text with a hoverable span
+        if (selection.rangeCount > 0) {
+          const range = selection.getRangeAt(0);
+          range.deleteContents();
+  
+          const span = document.createElement("span");
+          span.textContent = translated;
+          span.style.backgroundColor = "rgba(255,255,0,0.2)";
+          span.style.transition = "background-color 0.3s";
+          span.style.cursor = "help";
+          span.title = `Original: ${selectedText}`;
+  
+          // Optional: subtle hover animation
+          span.addEventListener("mouseenter", () => {
+            span.style.backgroundColor = "rgba(255,255,0,0.4)";
+          });
+          span.addEventListener("mouseleave", () => {
+            span.style.backgroundColor = "rgba(255,255,0,0.2)";
+          });
+  
+          range.insertNode(span);
+        }
+  
+        box.remove(); // close popup
+      } catch (err) {
+        console.error("Translation error:", err);
+        output.innerText = "Error fetching translation.";
+      }
+    });
   });
-
   popup.querySelector("#viewHistoryBtn").addEventListener("click", (e) => {
     e.stopPropagation();
     e.preventDefault();
@@ -647,7 +864,7 @@ function showTagActionsMenu(anchorEl) {
   menu.style.alignItems = "center";
   menu.style.gap = "8px";
 
-  const makeBtn = (label) => {
+  const mkBtn = (label) => {
     const btn = document.createElement("button");
     btn.textContent = label;
     btn.style.background = "none";
@@ -694,8 +911,8 @@ function showTagActionsMenu(anchorEl) {
     renderBadges(res.tagColors || {});
   });
 
-  const createTagBtn = makeBtn("Create Tag");
-  const openTagsBtn = makeBtn("Tags");
+  const createTagBtn = mkBtn("Create Tag");
+  const openTagsBtn = mkBtn("Tags");
 
   createTagBtn.addEventListener("click", () => {
     const existing = getHighlightTags(anchorEl);
