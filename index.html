@@ -1,230 +1,79 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Clarity Settings</title>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Clarity Settings — Toggle Debug</title>
 <style>
+  :root {
+    --bg: #f9f9f9;
+    --fg: #111;
+    --accent: #333;
+    --accent-active: #0b84ff;
+  }
   body {
-    font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-    margin: 20px;
-    background: #f9f9f9;
-    color: #111;
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+    margin: 28px;
+    background: var(--bg);
+    color: var(--fg);
+  }
+  h1 { text-align: center; margin-bottom: 18px; font-size: 20px; }
+  .row { display:flex; align-items:center; gap:16px; }
+  .switch {
+    --w: 64px;
+    --h: 32px;
     position: relative;
-  }
-
-  h1 { margin-bottom: 20px; }
-
-  .section { margin-bottom: 24px; }
-  label { display: block; margin-bottom: 6px; font-weight: 600; }
-
-  /* Horizontal menu buttons container */
-  .menu-options {
-    display: flex;
-    flex-wrap: nowrap; /* keep in one line, scroll if needed */
-    overflow-x: auto;
-  }
-
-  .menu-option {
-    flex: 0 0 auto; /* do not shrink */
-    padding: 10px 16px;
-    background: #333333;
-    color: white;
+    width: var(--w);
+    height: var(--h);
+    background: #ddd;
+    border-radius: 999px;
+    box-shadow: inset 0 1px 2px rgba(0,0,0,0.08);
     cursor: pointer;
-    font-size: 14px;
-    transition: background 0.2s ease;
-    user-select: none;
-    min-width: 90px;
-    text-align: center;
-    white-space: nowrap;
+    transition: background 0.18s ease;
   }
-
-  .menu-option:hover {
-    background: #555f;
-  }
-
-  .menu-option.disabled {
-    opacity: 0.3;
-  }
-
-  .top-buttons {
+  .switch[data-checked="true"] { background: var(--accent-active); }
+  .switch input { display: none; }
+  .knob {
     position: absolute;
-    top: 20px;
-    right: 20px;
-    display: flex;
-    gap: 10px;
+    top: 3px;
+    left: 3px;
+    width: calc(var(--h) - 6px);
+    height: calc(var(--h) - 6px);
+    background: white;
+    border-radius: 50%;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+    transition: transform 0.4s cubic-bezier(.2,.9,.3,1);
+    transform: translateX(0);
   }
+  .switch[data-checked="true"] .knob { transform: translateX(calc(var(--w) - var(--h))); }
+  .label { font-weight: 600; font-size: 14px; margin-right:-24px }
+  .sub { color: #555; font-size: 13px; }
+  .help { margin-top: 18px; color:#666; font-size:13px; text-align: center }
 
-  .top-buttons button {
-    padding: 10px 16px;
-    background: #333;
-    color: white;
-    border: none;
-    border-radius: 6px;
-    cursor: pointer;
-    font-size: 14px;
-    transition: background 0.2s ease;
-  }
+  #statusText {
+  color: #555;
+  font-size: 13px;
+  width: 70px;
+  text-align: left;
+}
 
-  .top-buttons button:hover {
-    background: #555f;
-  }
 </style>
 </head>
 <body>
+  <h1>Clarity Extension</h1>
 
-<!-- Top Right Buttons -->
-<div class="top-buttons">
-  <button id="importState">Import Page State</button>
-  <button id="exportState">Export Page State</button>
-</div>
-
-<h1>Clarity Settings</h1>
-
-<div class="section">
-  <label for="language">Translation Language Preference:</label>
-  <select id="language">
-    <option value="en">English</option>
-    <option value="es">Spanish</option>
-    <option value="fr">French</option>
-    <option value="de">German</option>
-  </select>
-</div>
-
-<div class="section">
-  <label>Dark/Light Mode:</label>
-  <div class="menu-options">
-    <div class="menu-option" style="border-radius: 8px;" id="themeToggle">Toggle Dark/Light</div>
+  <div class="row">
+    <div id="switch" class="switch" role="switch" aria-checked="true" data-checked="false" title="Toggle extension">
+      <input id="extensionToggle" type="checkbox" />
+      <div class="knob" aria-hidden="true"></div>
+    </div>
+    <div id="statusText" class="sub">Loading…</div>
   </div>
-</div>
 
-<div class="section">
-  <label>Menu Options:</label>
-  <div class="menu-options">
-    <div class="menu-option" style="border-radius: 8px 0 0 8px; border-right: 1px solid #555;" data-key="summarize">✨ Summarize</div>
-    <div class="menu-option" style="border-right: 1px solid #555;" data-key="notes">📝 Notes</div>
-    <div class="menu-option" style="border-right: 1px solid #555;" data-key="translate">🌐 Translate</div>
-    <div class="menu-option" style="border-right: 1px solid #555;" data-key="history">📋 History</div>
-    <div class="menu-option" style="border-radius: 0 8px 8px 0;" data-key="highlight">🖍️ Highlight</div>
+  <div class="help">
+    Disable or enable the Clarity extension by toggling the slider.
   </div>
-</div>
 
-<script>
-  (function () {
-    const defaults = {
-      theme: 'light',
-      language: 'en',
-      enabledMenu: { summarize: true, notes: true, translate: true, history: true, highlight: true },
-    };
-
-    function applyTheme(theme) {
-      if (theme === 'dark') {
-        document.body.style.backgroundColor = '#111';
-        document.body.style.color = '#f9f9f9';
-      } else {
-        document.body.style.backgroundColor = '#f9f9f9';
-        document.body.style.color = '#111';
-      }
-    }
-
-    function saveSettings(patch) {
-      chrome.storage.local.get(['settings'], (res) => {
-        const current = Object.assign({}, defaults, res.settings || {});
-        const next = Object.assign({}, current, patch || {});
-        chrome.storage.local.set({ settings: next });
-      });
-    }
-
-    function initFromStorage() {
-      const languageSelect = document.getElementById('language');
-      const themeToggle = document.getElementById('themeToggle');
-      chrome.storage.local.get(['settings'], (res) => {
-        const settings = Object.assign({}, defaults, res.settings || {});
-
-        // Theme
-        applyTheme(settings.theme);
-
-        // Language
-        languageSelect.value = settings.language || 'en';
-
-        // Menu toggles
-        document.querySelectorAll('.menu-options .menu-option').forEach((option) => {
-          if (option.id === 'themeToggle') return;
-          const key = option.dataset.key;
-          const enabled = settings.enabledMenu && key in settings.enabledMenu ? settings.enabledMenu[key] : true;
-          option.classList.toggle('disabled', !enabled);
-        });
-      });
-    }
-
-    // Theme toggle
-    document.getElementById('themeToggle').addEventListener('click', () => {
-      chrome.storage.local.get(['settings'], (res) => {
-        const theme = (res.settings && res.settings.theme) || defaults.theme;
-        const nextTheme = theme === 'dark' ? 'light' : 'dark';
-        applyTheme(nextTheme);
-        saveSettings({ theme: nextTheme });
-      });
-    });
-
-    // Menu option toggles: fade/unfade + persist
-    document.querySelectorAll('.menu-options .menu-option').forEach((option) => {
-      if (option.id === 'themeToggle') return;
-      option.addEventListener('click', () => {
-        const key = option.dataset.key;
-        const willEnable = option.classList.contains('disabled');
-        option.classList.toggle('disabled');
-        chrome.storage.local.get(['settings'], (res) => {
-          const s = Object.assign({}, defaults, res.settings || {});
-          s.enabledMenu = Object.assign({}, defaults.enabledMenu, s.enabledMenu || {});
-          s.enabledMenu[key] = willEnable;
-          chrome.storage.local.set({ settings: s });
-        });
-      });
-    });
-
-    // Language select + persist
-    document.getElementById('language').addEventListener('change', (e) => {
-      saveSettings({ language: e.target.value });
-    });
-
-    // Import/Export Page State buttons
-    document.getElementById('exportState').addEventListener('click', async () => {
-      chrome.storage.local.get(null, (all) => {
-        const blob = new Blob([JSON.stringify(all, null, 2)], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = 'clarity-settings.json';
-        a.click();
-        URL.revokeObjectURL(url);
-      });
-    });
-
-    document.getElementById('importState').addEventListener('click', () => {
-      const input = document.createElement('input');
-      input.type = 'file';
-      input.accept = 'application/json';
-      input.onchange = () => {
-        const file = input.files && input.files[0];
-        if (!file) return;
-        const reader = new FileReader();
-        reader.onload = () => {
-          try {
-            const data = JSON.parse(reader.result);
-            chrome.storage.local.set(data, () => initFromStorage());
-          } catch (e) {
-            alert('Invalid settings file.');
-          }
-        };
-        reader.readAsText(file);
-      };
-      input.click();
-    });
-
-    document.addEventListener('DOMContentLoaded', initFromStorage);
-  })();
-</script>
-
+  <script src="popup.js"></script>
 </body>
 </html>

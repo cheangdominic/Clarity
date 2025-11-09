@@ -6,6 +6,35 @@ let menuHovering = false;
 let currentTagMenuAnchorId = null;
 let menuJustOpenedUntil = 0;
 
+function initContentScript() {
+  chrome.storage.local.get(["extensionDisabled"], ({ extensionDisabled }) => {
+    if (extensionDisabled) {
+      console.log("Extension disabled — content script aborted");
+      return;
+    }
+
+    console.log("Extension enabled — running content script");
+  });
+}
+
+initContentScript();
+
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area === "local" && "extensionDisabled" in changes) {
+    const disabled = changes.extensionDisabled.newValue;
+    if (disabled) {
+      console.log("Extension disabled — removing effects");
+      document.querySelectorAll("p").forEach((p) => {
+        p.style.border = "";
+      });
+    } else {
+      console.log("Extension enabled — applying effects again");
+      initContentScript();
+    }
+  }
+});
+
+
 function injectClarityStyles() {
   if (document.getElementById("clarity-styles")) return;
   const st = document.createElement("style");
@@ -306,6 +335,12 @@ function createModal(id, title) {
 }
 
 function showHighlightPopup() {
+  chrome.storage.local.get(["extensionDisabled"], ({ extensionDisabled }) => {
+    if (extensionDisabled) {
+      console.log("Extension is disabled — not showing popup");
+      return;
+    }
+
   const selection = window.getSelection();
   const selectedText = selection.toString().trim();
   if (!selectedText) return;
@@ -753,6 +788,7 @@ function showHighlightPopup() {
     };
     document.addEventListener("click", documentClickListener);
   }, 150);
+})
 }
 
 function showClipboardHistory(popup) {
