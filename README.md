@@ -16,8 +16,7 @@ Clarity
 [![Node.js](https://img.shields.io/badge/Node.js-18+-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
 [![License](https://img.shields.io/badge/license-Private-red.svg)](LICENSE)
 [![Status](https://img.shields.io/badge/Status-Active-brightgreen.svg)](#)
-
-[![GitHub Stars](https://img.shields.io/github/stars/TheNutcases/Clarity?style=social)](https://github.com/TheNutcases/Clarity)
+[![GitHub Stars](https://img.shields.io/github/stars/TheNutcases/Clarity?style=social)](https://github.com/cheangdominic/Clarity)
 
 </div>
 
@@ -25,9 +24,18 @@ Clarity
 
 <br />
 
-<div align="center">
-<img src="images/ClarityDemo.png" alt="Clarity Demo" width="800" style="border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.25); transform: perspective(1000px) rotateX(1deg);">
-</div>
+---
+
+## 🧩 Problem Statement
+
+In today’s digital world, people constantly consume information — articles, research papers, blogs, documentation — yet **most reading remains passive**.  
+Important insights are lost in endless tabs, and copying text for notes or summaries is tedious.  
+Students, researchers, and professionals alike struggle to **retain, organize, and make sense of what they read online**.
+
+**Theme — Utility:**  
+Clarity was built to solve this everyday challenge by turning any webpage into an **interactive, active-learning workspace**.  
+It empowers users to summarize, translate, highlight, and take notes instantly — all from a single contextual menu.  
+No switching tabs, no messy note-taking apps — just clarity, right where you read.
 
 ---
 
@@ -103,8 +111,65 @@ Select text to reveal an elegant contextual menu with:
 
 ## 🚀 Quick Start
 
-### 1️⃣ Install dependencies
+### 🧩 Prerequisites
+
+- **Google Chrome** (with Manifest V3 support)
+- **Node.js** v18+
+- **Nodemon** (optional, for auto-restart)
+- **API Keys**:
+  - `OPENAI_API_KEY` — for summarization and note generation
+  - `GOOGLE_API_KEY` — for translation features
+
+---
+
+### ⚙️ Install Dependencies
 
 ```bash
 npm install
 ```
+
+### 🔑 Configure Environment
+
+Create a .env file in the project root and add your API keys:
+
+```bash
+OPENAI_API_KEY=your-openai-api-key
+GOOGLE_API_KEY=your-google-api-key
+```
+
+### ▶️ Start the Local API Server
+
+```bash
+nodemon server.js
+```
+
+💡 Alternatively, you can run:
+
+```bash
+node server.js
+```
+
+if you don’t have Nodemon installed globally.
+
+🧠 Load the Chrome Extension
+
+1. Open Google Chrome
+
+2. Navigate to:
+
+```arduino
+chrome://extensions/
+```
+
+3. Enable Developer Mode (toggle in the top-right corner)
+
+4. Click Load unpacked
+
+5. Select the project’s extension folder — the one containing your manifest.json
+
+6. The Clarity extension will now appear in your Chrome toolbar
+
+✅ Done!
+
+Your Clarity extension and local AI server are now running 🎉
+Select any text on a webpage to open the floating action menu and start summarizing, translating, or creating study notes instantly.
