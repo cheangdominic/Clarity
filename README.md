@@ -14,7 +14,7 @@ Clarity
 
 [![Chrome Extension](https://img.shields.io/badge/Chrome%20Extension-MV3-4285F4?logo=google-chrome&logoColor=white)](https://developer.chrome.com/docs/extensions/mv3/)
 [![Node.js](https://img.shields.io/badge/Node.js-18+-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
-[![License](https://img.shields.io/badge/license-Private-red.svg)](LICENSE)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Status](https://img.shields.io/badge/Status-Active-brightgreen.svg)](#)
 [![GitHub Stars](https://img.shields.io/github/stars/TheNutcases/Clarity?style=social)](https://github.com/cheangdominic/Clarity)
 
@@ -153,21 +153,21 @@ if you don’t have Nodemon installed globally.
 
 🧠 Load the Chrome Extension
 
-1. Open Google Chrome
+1. **Open Google Chrome**
 
-2. Navigate to:
+2. **Navigate to:**
 
 ```arduino
 chrome://extensions/
 ```
 
-3. Enable Developer Mode (toggle in the top-right corner)
+3. **Enable Developer Mode (toggle in the top-right corner)**
 
-4. Click Load unpacked
+4. **Click Load unpacked**
 
-5. Select the project’s extension folder — the one containing your manifest.json
+5. **Select the project’s extension folder — the one containing your manifest.json**
 
-6. The Clarity extension will now appear in your Chrome toolbar
+6. **The Clarity extension will now appear in your Chrome toolbar**
 
 ✅ Done!
 
