@@ -902,7 +902,7 @@ function showClipboardHistory(popup) {
       ">
         <span style="font-weight:600;">Clipboard History</span>
         <div class="modal-controls" style="display:flex;align-items:center;gap: 1rem;">
-          <button id="clearHistoryBtn" style="background:#ff5252;color:white;border:none;padding:4px 8px;border-radius:4px;font-size:11px;cursor:pointer;">Clear</button>
+          <button id="clearHistoryBtn" style="background:none;color:white;border:none;padding:4px 8px;border-radius:4px;font-size:13px;cursor:pointer;">Clear</button>
           <button id="closeHistoryBtn" style="background:none;border:none;color:white;font-size:20px;cursor:pointer;padding:0;line-height:1;">×</button>
         </div>
       </div>
