@@ -191,7 +191,6 @@ function makeModalDraggable(modal) {
     offsetY = 0,
     isDragging = false;
 
-  // Create a separate drag handle element that only covers the title area
   const dragHandle = document.createElement("div");
   dragHandle.style.cssText = `
     position: absolute;
@@ -203,7 +202,6 @@ function makeModalDraggable(modal) {
     z-index: 1;
   `;
 
-  // Insert the drag handle at the beginning of the header
   header.style.position = "relative";
   header.insertBefore(dragHandle, header.firstChild);
 
@@ -228,7 +226,6 @@ function makeModalDraggable(modal) {
     const viewportWidth = window.innerWidth;
     const viewportHeight = window.innerHeight;
 
-    // Keep modal within viewport bounds
     newX = Math.max(10, Math.min(newX, viewportWidth - modalRect.width - 10));
     newY = Math.max(10, Math.min(newY, viewportHeight - modalRect.height - 10));
 
@@ -258,6 +255,48 @@ function makeModalDraggable(modal) {
   };
 }
 
+// Ensure a modal opens fully within the viewport near a given popup element.
+function positionModalNearPopup(modal, popup) {
+  const margin = 12; // min distance from edges
+
+  // Prepare for measurement and fixed positioning
+  modal.style.position = "fixed";
+  modal.style.transform = "none";
+  modal.style.opacity = "0";
+  modal.style.visibility = "hidden";
+
+  // Defer until layout is ready so measurements are accurate
+  requestAnimationFrame(() => {
+    const popupRect = popup.getBoundingClientRect();
+    const modalRect = modal.getBoundingClientRect();
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+
+    // Prefer placing above the popup
+    let top = popupRect.top - margin - modalRect.height;
+    // If not enough space above, place below
+    if (top < margin) top = popupRect.bottom + margin;
+
+    // Clamp within viewport vertically
+    top = Math.max(
+      margin,
+      Math.min(top, viewportHeight - modalRect.height - margin)
+    );
+
+    // Center horizontally over the popup, then clamp
+    let left = popupRect.left + popupRect.width / 2 - modalRect.width / 2;
+    left = Math.max(
+      margin,
+      Math.min(left, viewportWidth - modalRect.width - margin)
+    );
+
+    modal.style.top = `${Math.round(top)}px`;
+    modal.style.left = `${Math.round(left)}px`;
+    modal.style.visibility = "visible";
+    modal.style.opacity = "1";
+  });
+}
+
 function createModal(id, title) {
   const modal = document.createElement("div");
   modal.id = id;
@@ -272,25 +311,19 @@ function createModal(id, title) {
     display: "none",
     fontFamily: "system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif",
     position: "fixed",
-    transition: "opacity 0.2s ease, transform 0.2s ease",
-    resize: "both",
-    overflow: "hidden",
-    minWidth: "250px",
-    minHeight: "150px",
-    maxWidth: "90vw",
-    maxHeight: "80vh",
-    paddingBottom: "8px",
-    boxSizing: "border-box",
+    transition: "opacity 0.3s ease, transform 0.3s ease",
+    opacity: "0",
+    transform: "scale(0.95) translateY(-10px)",
   });
 
   modal.innerHTML = `
-    <div class="modal-header" style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;background:#333;color:#fff;cursor:move;">
-      <span style="font-weight:600;">${title}</span>
-      <div class="modal-controls" style="display:flex;align-items:center;gap:1rem;">
-        <button class="collapse-btn" style="background:none;border:none;color:#fff;font-size:20px;cursor:pointer;padding:0 5px;line-height:1;" title="Collapse/Expand">
-          <span class="collapse-icon">−</span>
-        </button>
-        <button class="close-btn" style="background:none;border:none;color:#fff;font-size:20px;cursor:pointer;padding:0;line-height:1;">×</button>
+   <div class="modal-header" style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;background:#333;color:#fff;">
+     <span style="font-weight:600;">${title}</span>
+     <div class="modal-controls" style="display:flex;align-items:center;gap: 1rem;">
+      <button class="collapse-btn" style="background:none;border:none;color:#fff;font-size:20px;cursor:pointer;padding:0 5px;line-height:1;" title="Collapse/Expand">
+        <span class="collapse-icon">−</span>
+      </button>
+      <button class="close-btn" style="background:none;border:none;color:#fff;font-size:20px;cursor:pointer;padding:0;line-height:1;">×</button>
       </div>
     </div>
     <div class="modal-content" style="padding:14px 16px;max-height:220px;overflow:auto;font-size:14px;line-height:1.45;color:#333;"></div>
@@ -298,19 +331,47 @@ function createModal(id, title) {
 
   document.body.appendChild(modal);
 
+  let currentHighlight = null;
+
+  modal.setHighlight = function (highlightEl) {
+    currentHighlight = highlightEl;
+  };
+
   modal.querySelector(".close-btn").onclick = () => {
-    modal.style.display = "none";
+    if (currentHighlight) {
+      currentHighlight.style.backgroundColor = "";
+      currentHighlight.style.boxShadow = "";
+    }
+    modal.style.opacity = "0";
+    modal.style.transform = "scale(0.95) translateY(-10px)";
+    setTimeout(() => {
+      modal.style.display = "none";
+    }, 300);
   };
 
   modal.addEventListener("mouseenter", () => {
-    if (modal._highlight) {
-      modal._highlight.style.backgroundColor = "#FFFF00";
+    if (currentHighlight) {
+      if (!currentHighlight._originalBackground) {
+        currentHighlight._originalBackground =
+          currentHighlight.style.backgroundColor;
+      }
+      if (!currentHighlight._originalBoxShadow) {
+        currentHighlight._originalBoxShadow = currentHighlight.style.boxShadow;
+      }
+
+      currentHighlight.style.backgroundColor = "#FFFF0088";
+      currentHighlight.style.boxShadow = "0 0 8px rgba(255, 255, 0, 0.8)";
+      currentHighlight.style.transition = "all 0.3s ease";
     }
   });
 
   modal.addEventListener("mouseleave", () => {
-    if (modal._highlight) {
-      modal._highlight.style.backgroundColor = "";
+    if (currentHighlight) {
+      // Restore original styles
+      currentHighlight.style.backgroundColor =
+        currentHighlight._originalBackground || "";
+      currentHighlight.style.boxShadow =
+        currentHighlight._originalBoxShadow || "";
     }
   });
 
@@ -404,21 +465,14 @@ function showHighlightPopup() {
   });
   popup.querySelector("#summarizeBtn").onclick = async () => {
     const modal = createModal(`summaryModal-${Date.now()}`, "Summary");
-    modal._highlight = highlightSpan;
+    modal.setHighlight(highlightSpan);
     const content = modal.querySelector(".modal-content");
     showLoadingSpinner(content);
     modal.style.display = "block";
-    const rect = popup.getBoundingClientRect();
-
-    modal.style.position = "absolute";
-
-    modal.style.top = `${rect.top - 12}px`;
-    modal.style.left = `${rect.left + rect.width / 2}px`;
-    modal.style.transform = "translateX(-50%) translateY(-100%)";
-
-    modal.style.opacity = "0";
     modal.style.zIndex = "1000000";
+    modal.style.fontFamily = `Segoe UI`;
     requestAnimationFrame(() => (modal.style.opacity = "1"));
+    positionModalNearPopup(modal, popup);
 
     try {
       const res = await fetch("http://localhost:5000/summarize", {
@@ -445,24 +499,17 @@ function showHighlightPopup() {
       }, 100);
     });
   });
-  
 
   popup.querySelector("#notesBtn").onclick = async () => {
     const modal = createModal(`notesModal-${Date.now()}`, "Notes");
-    modal._highlight = highlightSpan;
+    modal.setHighlight(highlightSpan);
     const content = modal.querySelector(".modal-content");
     showLoadingSpinner(content);
     modal.style.display = "block";
-    const rect = popup.getBoundingClientRect();
-    modal.style.position = "absolute";
-
-    modal.style.top = `${rect.top - 12}px`;
-    modal.style.left = `${rect.left + rect.width / 2}px`;
-    modal.style.transform = "translateX(-50%) translateY(-100%)";
-
-    modal.style.opacity = "0";
     modal.style.zIndex = "1000000";
+    modal.style.fontFamily = `Segoe UI`;
     requestAnimationFrame(() => (modal.style.opacity = "1"));
+    positionModalNearPopup(modal, popup);
     try {
       const res = await fetch("http://localhost:5000/notes", {
         method: "POST",
@@ -806,7 +853,7 @@ function showClipboardHistory(popup) {
     card.id = "clipboardHistoryCard";
     card.classList.add("clarity-panel");
     Object.assign(card.style, {
-      position: "absolute",
+      position: "fixed",
       zIndex: "1000000",
       minWidth: "320px",
       maxWidth: "460px",
@@ -814,12 +861,8 @@ function showClipboardHistory(popup) {
       overflowY: "auto",
       padding: "12px",
     });
-    const popupRect = popup.getBoundingClientRect();
-    card.style.top = `${window.scrollY + popupRect.top - 10}px`;
-    card.style.left = `${
-      window.scrollX + popupRect.left + popupRect.width / 2
-    }px`;
-    card.style.transform = "translateX(-50%) translateY(-100%)";
+    // Position safely near the toolbar popup, clamped to viewport
+    // Exact placement is handled after insertion by positionModalNearPopup
     if (history.length === 0) {
       card.innerHTML = `
         <div style="text-align:center;padding:20px;color:#666;">
@@ -948,18 +991,7 @@ function showClipboardHistory(popup) {
     }
     document.body.appendChild(card);
     try {
-      const pr = card.getBoundingClientRect();
-      const threshold = 8;
-      if (pr.top < threshold) {
-        card.style.top = `${window.scrollY + popupRect.bottom + 10}px`;
-        card.style.transform = "translateX(-50%) translateY(0)";
-      }
-      const vw = document.documentElement.clientWidth;
-      const leftPx = Math.min(
-        Math.max(window.scrollX + 12, window.scrollX + popupRect.left),
-        window.scrollX + vw - 12
-      );
-      card.style.left = `${leftPx}px`;
+      positionModalNearPopup(card, popup);
     } catch (_) {}
   });
 }
