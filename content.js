@@ -6,6 +6,32 @@ let menuHovering = false;
 let currentTagMenuAnchorId = null;
 let menuJustOpenedUntil = 0;
 
+if (!document.getElementById("clarity-style")) {
+  const style = document.createElement("style");
+  style.id = "clarity-style";
+  style.textContent = `
+    .clarity-panel::-webkit-scrollbar {
+      width: 6px;
+    }
+    .clarity-panel::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    .clarity-panel::-webkit-scrollbar-thumb {
+      background: rgba(0, 0, 0, 0.3);
+      border-radius: 3px;
+    }
+    .clarity-panel::-webkit-scrollbar-thumb:hover {
+      background: rgba(0, 0, 0, 0.45);
+    }
+    .clarity-panel {
+      scrollbar-width: thin;
+      scrollbar-color: rgba(0,0,0,0.3) transparent;
+    }
+  `;
+  document.head.appendChild(style);
+}
+
+
 function initContentScript() {
   chrome.storage.local.get(["extensionDisabled"], ({ extensionDisabled }) => {
     if (extensionDisabled) {
@@ -831,73 +857,97 @@ popup.style.transform = "none";
   }, 150);
 })
 }
-
 function showClipboardHistory(popup) {
   const oldCard = document.getElementById("clipboardHistoryCard");
   if (oldCard) oldCard.remove();
-
-  const highlightsPanels = document.querySelectorAll("#highlightsPanel");
-  highlightsPanels.forEach((panel) => {
-    panel.remove();
-  });
 
   chrome.storage.local.get(["clipboard"], (result) => {
     const history = result.clipboard || [];
     const card = document.createElement("div");
     card.id = "clipboardHistoryCard";
-    card.classList.add("clarity-panel");
+
     Object.assign(card.style, {
-      position: "fixed",
-      zIndex: "1000000",
-      minWidth: "320px",
-      maxWidth: "460px",
-      maxHeight: "360px",
-      overflowY: "auto",
-      padding: "12px",
+      width: "340px",
+      maxWidth: "90%",
+      background: "#fff",
+      borderRadius: "0px 0px 8px 8px",
+      boxShadow: "0 4px 20px rgba(0,0,0,0.25)",
+      zIndex: "999999",
+      fontFamily:
+        "system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif",
+      position: "absolute",
+      transition: "opacity 0.3s ease, transform 0.3s ease",
+      opacity: "1",
+      transform: "scale(1)",
+      overflow: "hidden",
     });
-    if (history.length === 0) {
-      card.innerHTML = `
-        <div style="text-align:center;padding:20px;color:#666;">
-          <div style="font-size:24px;margin-bottom:8px;">📋</div>
-          <div style="font-weight:bold;margin-bottom:4px;">Clipboard History</div>
-          <div style="font-size:12px;">No history yet. Copy some text!</div>
+
+    const popupRect = popup.getBoundingClientRect();
+    card.style.top = `${window.scrollY + popupRect.top - 10}px`;
+    card.style.left = `${
+      window.scrollX + popupRect.left + popupRect.width / 2
+    }px`;
+    card.style.transform += " translateX(-50%) translateY(-100%)";
+
+    card.innerHTML = `
+      <div class="modal-header" style="
+        display:flex;
+        justify-content:space-between;
+        align-items:center;
+        padding:12px 16px;
+        background:#333;
+        color:#fff;
+        border-radius:0px;
+      ">
+        <span style="font-weight:600;">Clipboard History</span>
+        <div class="modal-controls" style="display:flex;align-items:center;gap: 1rem;">
+          <button id="clearHistoryBtn" style="background:#ff5252;color:white;border:none;padding:4px 8px;border-radius:4px;font-size:11px;cursor:pointer;">Clear</button>
+          <button id="closeHistoryBtn" style="background:none;border:none;color:white;font-size:20px;cursor:pointer;padding:0;line-height:1;">×</button>
         </div>
-      `;
-    } else {
-      card.innerHTML = `
-        <div class="modal-header" style="font-weight:bold;margin-bottom:12px;padding:8px;border-bottom:1px solid #eee;display:flex;justify-content:space-between;align-items:center;">
-          <span style="display:flex;align-items:center;gap:6px;"><span>📋</span> <span>Clipboard History</span></span>
-          <div style="display:flex;align-items:center;gap:8px;">
-            <button id="clearHistoryBtn" class="clarity-btn" style="background:linear-gradient(#ff6b6b,#ff5252);color:white;border:none;">Clear</button>
-            <button id="closeHistoryBtn" class="clarity-link-btn" style="font-size:18px;color:#555;">×</button>
-          </div>
-        </div>
-      `;
+      </div>
+      <div class="modal-content" style="padding:14px 16px;max-height:220px;overflow:auto;font-size:14px;line-height:1.45;color:#333;">
+        ${
+          history.length === 0
+            ? `
+          <div style="text-align:center;padding:20px;color:#666;">
+            <div style="font-size:24px;margin-bottom:8px;">📋</div>
+            <div style="font-weight:bold;margin-bottom:4px;">Clipboard History</div>
+            <div style="font-size:12px;">No history yet. Copy some text!</div>
+          </div>`
+            : ""
+        }
+      </div>
+    `;
+
+    const content = card.querySelector(".modal-content");
+
+    if (history.length > 0) {
       const list = document.createElement("div");
-      list.style.display = "flex";
-      list.style.flexDirection = "column";
-      list.style.gap = "8px";
-      list.style.color = "black";
+      Object.assign(list.style, {
+        display: "flex",
+        flexDirection: "column",
+        gap: "8px",
+      });
+
       history.slice(0, 10).forEach((item) => {
-        const itemDiv = document.createElement("div");
-        itemDiv.classList.add("clarity-row");
-        Object.assign(itemDiv.style, {
+        const row = document.createElement("div");
+        Object.assign(row.style, {
           padding: "10px",
           background: "#f7f7f7",
           borderRadius: "8px",
           cursor: "pointer",
           transition: "background 0.2s",
-          position: "relative",
           border: "1px solid #eee",
+          position: "relative",
         });
-        itemDiv.innerHTML = `
+        row.innerHTML = `
           <div style="font-size:10px;color:#666;margin-bottom:4px;">${item.date}</div>
           <div style="font-size:13px;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${item.text}</div>
         `;
-        itemDiv.addEventListener("click", (e) => {
+        row.addEventListener("click", (e) => {
           e.stopPropagation();
           navigator.clipboard.writeText(item.text);
-          itemDiv.style.background = "#c8e6c9";
+          row.style.background = "#c8e6c9";
           const feedback = document.createElement("div");
           feedback.textContent = "✓ Copied";
           Object.assign(feedback.style, {
@@ -912,79 +962,47 @@ function showClipboardHistory(popup) {
             fontSize: "12px",
             fontWeight: "bold",
           });
-          itemDiv.appendChild(feedback);
+          row.appendChild(feedback);
           setTimeout(() => {
-            itemDiv.style.background = "#f7f7f7";
             feedback.remove();
+            row.style.background = "#f7f7f7";
           }, 1000);
         });
-        itemDiv.addEventListener("mouseenter", () => {
-          itemDiv.style.background = "#e0e0e0";
-        });
-        itemDiv.addEventListener("mouseleave", () => {
-          itemDiv.style.background = "#f7f7f7";
-        });
-        list.appendChild(itemDiv);
+        row.addEventListener(
+          "mouseenter",
+          () => (row.style.background = "#e0e0e0")
+        );
+        row.addEventListener(
+          "mouseleave",
+          () => (row.style.background = "#f7f7f7")
+        );
+        list.appendChild(row);
       });
-      card.appendChild(list);
-      const closeWithAnimation = () => {
-        try {
-          card.classList.add("clarity-exit");
-        } catch (_) {}
-        setTimeout(() => {
-          try {
-            card.remove();
-          } catch (_) {}
-        }, 170);
-      };
-      const clearBtn = card.querySelector("#clearHistoryBtn");
-      clearBtn.addEventListener("click", (e) => {
-        e.stopPropagation();
-        clearBtn.disabled = true;
-        clearBtn.textContent = "Clearing…";
-        chrome.storage.local.set({ clipboard: [] }, () => {
-          const rows = Array.from(list.children);
-          rows.forEach((row, idx) => {
-            row.style.transition =
-              "opacity 180ms ease, transform 180ms ease, height 180ms ease, margin 180ms ease, padding 180ms ease";
-            const h = row.getBoundingClientRect().height;
-            row.style.height = h + "px";
-            requestAnimationFrame(() => {
-              row.style.opacity = "0";
-              row.style.transform = "translateY(-4px)";
-              row.style.height = "0px";
-              row.style.margin = "0";
-              row.style.paddingTop = "0";
-              row.style.paddingBottom = "0";
-            });
-            setTimeout(() => {
-              try {
-                row.remove();
-              } catch (_) {}
-              if (idx === rows.length - 1) {
-                list.innerHTML = "";
-                const empty = document.createElement("div");
-                empty.style.color = "#666";
-                empty.style.textAlign = "center";
-                empty.style.padding = "20px";
-                empty.innerHTML = `<div style=\"font-size:24px;margin-bottom:8px;\">📋</div><div style=\"font-weight:bold;margin-bottom:4px;\">Clipboard History</div><div style=\"font-size:12px;\">No history yet. Copy some text!</div>`;
-                list.appendChild(empty);
-                clearBtn.textContent = "Clear";
-                clearBtn.disabled = true;
-              }
-            }, 190 + idx * 20);
-          });
-        });
-      });
-      card.querySelector("#closeHistoryBtn").addEventListener("click", (e) => {
-        e.stopPropagation();
-        closeWithAnimation();
-      });
+      content.appendChild(list);
     }
+
     document.body.appendChild(card);
-    try {
-      positionModalNearPopup(card, popup);
-    } catch (_) {}
+
+    const closeBtn = card.querySelector("#closeHistoryBtn");
+    closeBtn.onclick = () => {
+      card.style.opacity = "0";
+      card.style.transform = "scale(0.95) translateY(-10px)";
+      setTimeout(() => card.remove(), 300);
+    };
+
+    const clearBtn = card.querySelector("#clearHistoryBtn");
+    clearBtn.onclick = (e) => {
+      e.stopPropagation();
+      chrome.storage.local.set({ clipboard: [] }, () => {
+        content.innerHTML = `
+          <div style="text-align:center;padding:20px;color:#666;">
+            <div style="font-size:24px;margin-bottom:8px;">📋</div>
+            <div style="font-weight:bold;margin-bottom:4px;">Clipboard History</div>
+            <div style="font-size:12px;">No history yet. Copy some text!</div>
+          </div>
+        `;
+      });
+    };
   });
 }
 
