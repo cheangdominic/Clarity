@@ -392,7 +392,7 @@ function showHighlightPopup() {
     const rect = popup.getBoundingClientRect();
 
     // 1. Set position to fixed (already in createModal, but essential)
-    modal.style.position = "fixed";
+    modal.style.position = "absolute";
 
     // 2. Position ABOVE the toolbar (using its viewport position)
     // The original code used rect.top - 12 (to be slightly above the top of the toolbar)
@@ -438,7 +438,7 @@ function showHighlightPopup() {
     modal.style.display = "block";
     const rect = popup.getBoundingClientRect();
     // 1. Set position to fixed (already in createModal, but essential)
-    modal.style.position = "fixed";
+    modal.style.position = "absolute";
 
     // 2. Position ABOVE the toolbar (using its viewport position)
     // The original code used rect.top - 12 (to be slightly above the top of the toolbar)
