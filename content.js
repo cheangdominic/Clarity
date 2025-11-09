@@ -282,7 +282,7 @@ function makeModalDraggable(modal) {
 function positionModalNearPopup(modal, popup) {
   const margin = 12;
 
-  modal.style.position = "fixed";
+  modal.style.position = "absolute";
   modal.style.transform = "none";
   modal.style.opacity = "0";
   modal.style.visibility = "hidden";
@@ -293,19 +293,23 @@ function positionModalNearPopup(modal, popup) {
     const viewportWidth = window.innerWidth;
     const viewportHeight = window.innerHeight;
 
-    let top = popupRect.top - margin - modalRect.height;
-    if (top < margin) top = popupRect.bottom + margin;
+    const popupTop = popupRect.top + window.scrollY;
+    const popupBottom = popupRect.bottom + window.scrollY;
+    const popupLeft = popupRect.left + window.scrollX;
 
-    top = Math.max(
-      margin,
-      Math.min(top, viewportHeight - modalRect.height - margin)
-    );
+    let top = popupTop - margin - modalRect.height;
+    if (top < window.scrollY + margin) {
+      top = popupBottom + margin;
+    }
 
-    let left = popupRect.left + popupRect.width / 2 - modalRect.width / 2;
-    left = Math.max(
-      margin,
-      Math.min(left, viewportWidth - modalRect.width - margin)
-    );
+    const minTop = window.scrollY + margin;
+    const maxTop = window.scrollY + viewportHeight - modalRect.height - margin;
+    top = Math.max(minTop, Math.min(top, maxTop));
+
+    let left = popupLeft + popupRect.width / 2 - modalRect.width / 2;
+    const minLeft = window.scrollX + margin;
+    const maxLeft = window.scrollX + viewportWidth - modalRect.width - margin;
+    left = Math.max(minLeft, Math.min(left, maxLeft));
 
     modal.style.top = `${Math.round(top)}px`;
     modal.style.left = `${Math.round(left)}px`;
@@ -343,7 +347,8 @@ function createModal(id, title) {
       <button class="close-btn" style="background:none;border:none;color:#fff;font-size:20px;cursor:pointer;padding:0;line-height:1;">×</button>
       </div>
     </div>
-<div class="modal-content" style="padding:14px 16px;max-height:220px;overflow:auto;font-size:14px;line-height:1.45;color:#333;transition: max-height 0.3s ease-out, padding 0.3s ease-out;"></div>  `;
+    <div class="modal-content" style="padding:14px 16px;max-height:220px;overflow:auto;font-size:14px;line-height:1.45;color:#333;"></div>
+  `;
 
   document.body.appendChild(modal);
 
@@ -395,12 +400,8 @@ function createModal(id, title) {
     const icon = modal.querySelector(".collapse-icon");
     if (modal.classList.contains("collapsed")) {
       modal.classList.remove("collapsed");
-      void content.offsetHeight;
       content.style.maxHeight = "220px";
       content.style.padding = "14px 16px";
-      content.style.transition =
-        "max-height 0.3s ease-out, padding 0.3s ease-out";
-      content.style.overflow = "hidden";
       icon.textContent = "−";
     } else {
       modal.classList.add("collapsed");
@@ -566,7 +567,7 @@ function showHighlightPopup() {
         zIndex: "1000000",
         fontFamily:
           "system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif",
-        position: "fixed",
+        position: "absolute",
         top: "50%",
         left: "50%",
         transform: "translate(-50%, -50%) scale(0.95)",
