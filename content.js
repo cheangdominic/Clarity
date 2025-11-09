@@ -13,9 +13,11 @@ function injectClarityStyles() {
   st.textContent = `
     @keyframes clarity-fade-up { from { opacity: 0; transform: translateY(6px) scale(.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
     @keyframes clarity-fade-down { from { opacity: 0; transform: translateY(-6px) scale(.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
+    @keyframes clarity-fade-out { from { opacity: 1; transform: translateY(0) scale(1); } to { opacity: 0; transform: translateY(6px) scale(.98); } }
     .clarity-surface { background: rgba(40,40,40,.96); color:#fff; border:1px solid rgba(255,255,255,.08); border-radius:10px; box-shadow:0 8px 28px rgba(0,0,0,.25); backdrop-filter: saturate(130%) blur(6px); -webkit-backdrop-filter: saturate(130%) blur(6px); }
     .clarity-popup, .clarity-menu, .clarity-picker { animation: clarity-fade-up 160ms cubic-bezier(.22,.61,.36,1); will-change: transform, opacity; }
     .clarity-panel { animation: clarity-fade-down 180ms cubic-bezier(.22,.61,.36,1); background:#fff; color:#222; border:1px solid rgba(0,0,0,.06); border-radius:12px; box-shadow:0 10px 30px rgba(0,0,0,.18); }
+    .clarity-exit { animation: clarity-fade-out 160ms cubic-bezier(.22,.61,.36,1) forwards; }
     .clarity-btn { appearance:none; border:1px solid rgba(0,0,0,.12); background:linear-gradient(#fafafa,#f3f3f3); color:#222; border-radius:8px; padding:6px 10px; font-size:12px; cursor:pointer; transition:background .15s ease, transform .06s ease, box-shadow .15s ease, border-color .15s ease; box-shadow:0 1px 2px rgba(0,0,0,.06); }
     .clarity-btn:hover { background:linear-gradient(#fff,#f6f6f6); box-shadow:0 2px 6px rgba(0,0,0,.08); }
     .clarity-btn:active { transform: translateY(1px); }
@@ -610,12 +612,12 @@ function showHighlightPopup() {
     }
 
     showHighlightColorPicker(rectSel, popupRect, (styleSpec) => {
+      let highlight = null;
       try {
         const extracted = range.extractContents();
-        const highlight = document.createElement("span");
+        highlight = document.createElement("span");
         highlight.style.backgroundColor = styleSpec.background;
-        if (styleSpec.boxShadow)
-          highlight.style.boxShadow = styleSpec.boxShadow;
+        if (styleSpec.boxShadow) highlight.style.boxShadow = styleSpec.boxShadow;
         highlight.style.borderRadius = "2px";
         highlight.style.padding = "0 2px";
         highlight.className = "clarity-highlight";
@@ -623,26 +625,19 @@ function showHighlightPopup() {
         range.insertNode(highlight);
         selection.removeAllRanges();
         lastCreatedHighlight = highlight;
-
-        try {
-          popup.remove();
-        } catch (_) {}
-
-        if (historyCard) {
-          historyCard.remove();
-        }
-
-        if (documentClickListener) {
-          document.removeEventListener("click", documentClickListener);
-          documentClickListener = null;
-        }
-        showTagActionsMenu(highlight);
       } catch (err) {
         console.error("Highlight failed, likely spans multiple elements:", err);
-        alert(
-          "Cannot highlight across complex HTML elements. Try a simpler selection."
-        );
+        alert("Cannot highlight across complex HTML elements. Try a simpler selection.");
+        return;
       }
+
+      try { popup.remove(); } catch (_) {}
+      if (historyCard) { try { historyCard.remove(); } catch (_) {} }
+      if (documentClickListener) {
+        document.removeEventListener("click", documentClickListener);
+        documentClickListener = null;
+      }
+      try { showTagActionsMenu(highlight); } catch (e) { console.warn("Tag menu open failed:", e); }
     });
   });
 
@@ -655,8 +650,14 @@ function showHighlightPopup() {
         (!historyCard || !historyCard.contains(e.target)) &&
         (!highlightsPanel || !highlightsPanel.contains(e.target))
       ) {
-        if (historyCard) historyCard.remove();
-        if (highlightsPanel) highlightsPanel.remove();
+        if (historyCard) {
+          try { historyCard.classList.add("clarity-exit"); } catch (_) {}
+          setTimeout(() => { try { historyCard.remove(); } catch (_) {} }, 170);
+        }
+        if (highlightsPanel) {
+          try { highlightsPanel.classList.add("clarity-exit"); } catch (_) {}
+          setTimeout(() => { try { highlightsPanel.remove(); } catch (_) {} }, 170);
+        }
         document.removeEventListener("click", documentClickListener);
         documentClickListener = null;
       }
@@ -678,22 +679,15 @@ function showClipboardHistory(popup) {
     const history = result.clipboard || [];
     const card = document.createElement("div");
     card.id = "clipboardHistoryCard";
+    card.classList.add("clarity-panel");
     Object.assign(card.style, {
       position: "absolute",
-      background: "black",
-      color: "white",
-      background: "black",
-      color: "white",
-      padding: "12px",
-      borderRadius: "8px",
-      boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
       zIndex: "1000000",
-      minWidth: "300px",
-      maxWidth: "400px",
-      maxHeight: "300px",
+      minWidth: "320px",
+      maxWidth: "460px",
+      maxHeight: "360px",
       overflowY: "auto",
-      opacity: "0",
-      transition: "opacity 0.2s ease",
+      padding: "12px",
     });
     const popupRect = popup.getBoundingClientRect();
     card.style.top = `${window.scrollY + popupRect.top - 10}px`;
@@ -712,10 +706,10 @@ function showClipboardHistory(popup) {
     } else {
       card.innerHTML = `
         <div class="modal-header" style="font-weight:bold;margin-bottom:12px;padding:8px;border-bottom:1px solid #eee;display:flex;justify-content:space-between;align-items:center;">
-          <span>📋 Clipboard History</span>
-          <div style="display:flex;align-items:center;">
-            <button id="clearHistoryBtn" style="background:#ff5252;color:white;border:none;padding:4px 8px;border-radius:4px;font-size:11px;cursor:pointer;">Clear</button>
-            <button id="closeHistoryBtn" style="background:none;border:none;color:white;font-size:20px;cursor:pointer;line-height:1;padding:5px;margin-left:8px;">×</button>
+          <span style="display:flex;align-items:center;gap:6px;"><span>📋</span> <span>Clipboard History</span></span>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <button id="clearHistoryBtn" class="clarity-btn" style="background:linear-gradient(#ff6b6b,#ff5252);color:white;border:none;">Clear</button>
+            <button id="closeHistoryBtn" class="clarity-link-btn" style="font-size:18px;color:#555;">×</button>
           </div>
         </div>
       `;
@@ -724,9 +718,9 @@ function showClipboardHistory(popup) {
       list.style.flexDirection = "column";
       list.style.gap = "8px";
       list.style.color = "black";
-      list.style.color = "black";
       history.slice(0, 10).forEach((item) => {
         const itemDiv = document.createElement("div");
+        itemDiv.classList.add("clarity-row");
         Object.assign(itemDiv.style, {
           padding: "10px",
           background: "#f7f7f7",
@@ -773,29 +767,73 @@ function showClipboardHistory(popup) {
         list.appendChild(itemDiv);
       });
       card.appendChild(list);
-      card.querySelector("#clearHistoryBtn").addEventListener("click", (e) => {
+      const closeWithAnimation = () => {
+        try {
+          card.classList.add("clarity-exit");
+        } catch (_) {}
+        setTimeout(() => { try { card.remove(); } catch (_) {} }, 170);
+      };
+      const clearBtn = card.querySelector("#clearHistoryBtn");
+      clearBtn.addEventListener("click", (e) => {
         e.stopPropagation();
-        if (confirm("Clear all clipboard history?")) {
-          chrome.storage.local.set({ clipboard: [] }, () => {
-            card.remove();
-            popup.remove();
+        clearBtn.disabled = true;
+        clearBtn.textContent = "Clearing…";
+        // Persist clear first
+        chrome.storage.local.set({ clipboard: [] }, () => {
+          // Animate each row out, then show empty state; keep panel open
+          const rows = Array.from(list.children);
+          rows.forEach((row, idx) => {
+            row.style.transition = "opacity 180ms ease, transform 180ms ease, height 180ms ease, margin 180ms ease, padding 180ms ease";
+            // Lock current height to allow smooth collapse
+            const h = row.getBoundingClientRect().height;
+            row.style.height = h + "px";
+            requestAnimationFrame(() => {
+              row.style.opacity = "0";
+              row.style.transform = "translateY(-4px)";
+              row.style.height = "0px";
+              row.style.margin = "0";
+              row.style.paddingTop = "0";
+              row.style.paddingBottom = "0";
+            });
+            setTimeout(() => {
+              try { row.remove(); } catch (_) {}
+              if (idx === rows.length - 1) {
+                // Last one done → show empty state and keep panel open
+                list.innerHTML = "";
+                const empty = document.createElement("div");
+                empty.style.color = "#666";
+                empty.style.textAlign = "center";
+                empty.style.padding = "20px";
+                empty.innerHTML = `<div style=\"font-size:24px;margin-bottom:8px;\">📋</div><div style=\"font-weight:bold;margin-bottom:4px;\">Clipboard History</div><div style=\"font-size:12px;\">No history yet. Copy some text!</div>`;
+                list.appendChild(empty);
+                clearBtn.textContent = "Clear";
+                clearBtn.disabled = true; // nothing to clear now
+              }
+            }, 190 + idx * 20);
           });
-        }
+        });
       });
       card.querySelector("#closeHistoryBtn").addEventListener("click", (e) => {
         e.stopPropagation();
-        card.remove();
-      });
-      card.querySelector("#closeHistoryBtn").addEventListener("click", (e) => {
-        e.stopPropagation();
-        card.remove();
+        closeWithAnimation();
       });
     }
     document.body.appendChild(card);
-    makeModalDraggable(card);
-    requestAnimationFrame(() => {
-      card.style.opacity = "1";
-    });
+    // Position correction: flip below if near top and clamp horizontally
+    try {
+      const pr = card.getBoundingClientRect();
+      const threshold = 8;
+      if (pr.top < threshold) {
+        card.style.top = `${window.scrollY + popupRect.bottom + 10}px`;
+        card.style.transform = "translateX(-50%) translateY(0)";
+      }
+      const vw = document.documentElement.clientWidth;
+      const leftPx = Math.min(
+        Math.max(window.scrollX + 12, window.scrollX + popupRect.left),
+        window.scrollX + vw - 12
+      );
+      card.style.left = `${leftPx}px`;
+    } catch (_) {}
   });
 }
 
@@ -1110,7 +1148,7 @@ function showTagActionsMenu(anchorEl) {
   menu.style.alignItems = "center";
   menu.style.gap = "8px";
 
-  const makeBtn = (label) => {
+  const mkBtn = (label) => {
     const btn = document.createElement("button");
     btn.textContent = label;
     btn.style.background = "none";
