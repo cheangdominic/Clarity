@@ -212,5 +212,36 @@ app.post("/openai", async (req, res) => {
   }
 });
 
+app.post("/translate", async (req, res) => {
+  const { text, target = "es" } = req.body;
+
+  if (!text || text.trim().length === 0) {
+    return res.status(400).json({ error: "No text provided" });
+  }
+
+  try {
+    const response = await fetch(
+      `https://translation.googleapis.com/language/translate/v2?key=${process.env.GOOGLE_API_KEY}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          q: text,
+          target,
+          format: "text",
+        }),
+      }
+    );
+
+    const data = await response.json();
+    const translatedText = data.data?.translations?.[0]?.translatedText;
+
+    res.json({ translatedText });
+  } catch (error) {
+    console.error("Translation error:", error);
+    res.status(500).json({ error: "Failed to translate text" });
+  }
+});
+
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));

@@ -159,6 +159,65 @@ function makeModalDraggable(modal) {
     // modal.style.transform = "none";
   });
 
+  function makeModalDraggable(modal) {
+    const header = modal.querySelector(".modal-header");
+    if (!header) return;
+    let offsetX = 0,
+      offsetY = 0,
+      isDragging = false;
+    header.style.cursor = "move";
+
+    header.addEventListener("mousedown", (e) => {
+      isDragging = true;
+      const rect = modal.getBoundingClientRect();
+      offsetX = e.clientX - rect.left;
+      offsetY = e.clientY - rect.top;
+      modal.style.transition = "none";
+
+      // FIX for JUMPING: Immediately remove the positioning transform
+      modal.style.transform = "none";
+
+      document.body.style.userSelect = "none";
+    });
+
+    document.addEventListener("mousemove", (e) => {
+      if (!isDragging) return;
+
+      // Start position calculation
+      let newX = e.clientX - offsetX;
+      let newY = e.clientY - offsetY;
+
+      // Get the current dimensions of the modal (important inside mousemove)
+      const modalRect = modal.getBoundingClientRect();
+
+      // Allow slight dragging outside the viewport (e.g., 200px margin)
+      const margin = 200;
+
+      // Clamp X position (left edge at -margin, right edge at window width + margin - modal width)
+      newX = Math.max(
+        -margin,
+        Math.min(newX, window.innerWidth - modalRect.width + margin)
+      );
+
+      // Clamp Y position (top edge at -margin, bottom edge at window height + margin - modal height)
+      // We'll use 0 for the top edge for a slightly more controlled feel, but allow some margin at the bottom
+      newY = Math.max(
+        0,
+        Math.min(newY, window.innerHeight - modalRect.height + margin)
+      );
+
+      // Apply clamped position
+      modal.style.left = `${newX}px`;
+      modal.style.top = `${newY}px`;
+    });
+
+    document.addEventListener("mouseup", () => {
+      isDragging = false;
+      // Restore transition on mouseup
+      modal.style.transition = "opacity 0.2s ease, transform 0.2s ease";
+      document.body.style.userSelect = "auto";
+    });
+  }
   document.addEventListener("mouseup", () => {
     isDragging = false;
     modal.style.transition = "opacity 0.2s ease, transform 0.2s ease";
@@ -284,7 +343,6 @@ function showHighlightPopup() {
     popup.style.opacity = "1";
     popup.style.transform = "translateX(-50%) translateY(0)";
   });
-
   popup.querySelector("#summarizeBtn").onclick = async () => {
     const modal = createModal(`summaryModal-${Date.now()}`, "Summary");
     modal._highlight = highlightSpan;
@@ -292,12 +350,33 @@ function showHighlightPopup() {
     showLoadingSpinner(content);
     modal.style.display = "block";
     const rect = popup.getBoundingClientRect();
-    modal.style.top = `${window.scrollY + rect.top - 12}px`;
-    modal.style.left = `${window.scrollX + rect.left + rect.width / 2}px`;
+
+    // 1. Set position to fixed (already in createModal, but essential)
+    modal.style.position = "fixed";
+
+    // 2. Position ABOVE the toolbar (using its viewport position)
+    // The original code used rect.top - 12 (to be slightly above the top of the toolbar)
+    // AND translateY(-100%) (to push it up by its own full height).
+    // We REMOVE the translateY(-100%) and calculate the final top position directly.
+
+    // Calculate the Y position to place the *bottom* of the modal above the toolbar's top.
+    // NOTE: Because we don't know the height yet, we must rely on the translateY(-100%)
+    // or estimate the height. Using translateY(-100%) is standard for this pattern,
+    // but MUST be cleared by the dragging code.
+
+    // --- RESTORE ORIGINAL POSITIONING (AS IT'S A COMMON PATTERN) ---
+    // The key is ensuring the DRAGGING function immediately resets 'transform'.
+    modal.style.top = `${rect.top - 12}px`;
+    modal.style.left = `${rect.left + rect.width / 2}px`;
     modal.style.transform = "translateX(-50%) translateY(-100%)";
+    // --- END ORIGINAL POSITIONING ---
+
+    // 3. Set opacity and Z-Index
     modal.style.opacity = "0";
-    modal.style.zIndex = "10000";
+    modal.style.zIndex = "1000000"; // Keep the high z-index
     requestAnimationFrame(() => (modal.style.opacity = "1"));
+
+    // ... rest of the fetch logic ...
     try {
       const res = await fetch("http://localhost:5000/summarize", {
         method: "POST",
@@ -310,100 +389,6 @@ function showHighlightPopup() {
       content.innerHTML = `<p style="color:#a00;">Failed to fetch summary.</p>`;
     }
   };
-  //   // We create the modal div here, as the previous code was likely doing this inside createModal
-  //   const modal = document.createElement("div");
-  //   modal.id = `summaryModal-${Date.now()}`;
-
-  //   // Applying necessary styles directly (based on your createModal function)
-  //   Object.assign(modal.style, {
-  //     width: "340px",
-  //     maxWidth: "90%",
-  //     background: "#fff",
-  //     borderRadius: "10px",
-  //     boxShadow: "0 4px 20px rgba(0,0,0,0.25)",
-  //     zIndex: "10000001", // High z-index to ensure it is on top
-  //     overflow: "hidden",
-  //     display: "none",
-  //     fontFamily:
-  //       "system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif",
-  //     position: "fixed", // Use fixed for easier dragging
-  //     transition: "opacity 0.2s ease, transform 0.2s ease",
-  //   });
-
-  //   // 1. Insert the new collapsible HTML structure
-  //   const modalTitle = "Summary"; // Assuming the title is 'Summary'
-  //   modal.innerHTML = `
-  //       <div class="modal-header" style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;background:#333;color:#fff; cursor:move;">
-  //           <span class="modal-title" style="font-weight:600;">${modalTitle}</span>
-  //           <div>
-  //               <button class="collapse-btn" style="background:none;border:none;color:#fff;font-size:20px;cursor:pointer;padding:0 5px;line-height:1;" title="Collapse/Expand">
-  //                   <span class="collapse-icon">−</span>
-  //               </button>
-  //               <button class="close-btn" style="background:none;border:none;color:#fff;font-size:20px;cursor:pointer;padding:0;line-height:1;" title="Close">×</button>
-  //           </div>
-  //       </div>
-  //       <div class="modal-content" style="padding:14px 16px;max-height:220px;overflow:auto;font-size:14px;line-height:1.45;color:#333; transition:max-height 0.3s ease-out, padding 0.3s ease-out;">
-  //           </div>
-  //   `;
-
-  //   document.body.appendChild(modal);
-
-  //   const content = modal.querySelector(".modal-content");
-  //   // const highlightSpan = modal._highlight; // Uncomment if needed
-
-  //   // 2. Add Collapse Logic
-  //   modal.querySelector(".collapse-btn").onclick = (e) => {
-  //     const icon = modal.querySelector(".collapse-icon");
-
-  //     // Use a class toggle for CSS-based collapsing
-  //     if (modal.classList.contains("collapsed")) {
-  //       modal.classList.remove("collapsed");
-  //       content.style.maxHeight = "220px"; // Expand to full height
-  //       content.style.padding = "14px 16px";
-  //       icon.textContent = "−"; // Change icon to minus
-  //     } else {
-  //       modal.classList.add("collapsed");
-  //       content.style.maxHeight = "0"; // Collapse
-  //       content.style.padding = "0 16px"; // Keep horizontal padding or set to '0 16px'
-  //       icon.textContent = "+"; // Change icon to plus
-  //     }
-  //   };
-
-  //   // 3. Add Close Logic
-  //   modal.querySelector(".close-btn").onclick = () => {
-  //     modal.remove(); // Use .remove() for a clean exit
-  //     // Add logic here to re-show the original 'popup' if you want it back
-  //     // popup.style.display = 'block';
-  //   };
-
-  //   // 4. Initial Modal Setup and Positioning (Simplified for Draggability)
-  //   makeModalDraggable(modal); // Ensure your drag function is called here
-
-  //   showLoadingSpinner(content);
-  //   modal.style.display = "block";
-  //   const rect = popup.getBoundingClientRect();
-
-  //   // Simplified positioning for better dragging (position: fixed)
-  //   modal.style.top = `${rect.top - 12}px`;
-  //   modal.style.left = `${rect.left + rect.width / 2}px`;
-  //   modal.style.transform = "translateX(-50%)"; // Only horizontal center
-
-  //   modal.style.opacity = "0";
-  //   requestAnimationFrame(() => (modal.style.opacity = "1"));
-
-  //   // 5. Fetch Data
-  //   try {
-  //     const res = await fetch("http://localhost:5000/summarize", {
-  //       method: "POST",
-  //       headers: { "Content-Type": "application/json" },
-  //       body: JSON.stringify({ text: selectedText }),
-  //     });
-  //     const data = await res.json();
-  //     content.innerHTML = data.summary || "No summary available.";
-  //   } catch {
-  //     content.innerHTML = `<p style="color:#a00;">Failed to fetch summary.</p>`;
-  //   }
-  // };
 
   popup.querySelector("#notesBtn").onclick = async () => {
     const modal = createModal(`notesModal-${Date.now()}`, "Notes");
@@ -412,10 +397,29 @@ function showHighlightPopup() {
     showLoadingSpinner(content);
     modal.style.display = "block";
     const rect = popup.getBoundingClientRect();
-    modal.style.top = `${window.scrollY + rect.top - 12}px`;
-    modal.style.left = `${window.scrollX + rect.left + rect.width / 2}px`;
+    // 1. Set position to fixed (already in createModal, but essential)
+    modal.style.position = "fixed";
+
+    // 2. Position ABOVE the toolbar (using its viewport position)
+    // The original code used rect.top - 12 (to be slightly above the top of the toolbar)
+    // AND translateY(-100%) (to push it up by its own full height).
+    // We REMOVE the translateY(-100%) and calculate the final top position directly.
+
+    // Calculate the Y position to place the *bottom* of the modal above the toolbar's top.
+    // NOTE: Because we don't know the height yet, we must rely on the translateY(-100%)
+    // or estimate the height. Using translateY(-100%) is standard for this pattern,
+    // but MUST be cleared by the dragging code.
+
+    // --- RESTORE ORIGINAL POSITIONING (AS IT'S A COMMON PATTERN) ---
+    // The key is ensuring the DRAGGING function immediately resets 'transform'.
+    modal.style.top = `${rect.top - 12}px`;
+    modal.style.left = `${rect.left + rect.width / 2}px`;
     modal.style.transform = "translateX(-50%) translateY(-100%)";
+    // --- END ORIGINAL POSITIONING ---
+
+    // 3. Set opacity and Z-Index
     modal.style.opacity = "0";
+    modal.style.zIndex = "1000000"; // Keep the high z-index
     requestAnimationFrame(() => (modal.style.opacity = "1"));
     try {
       const res = await fetch("http://localhost:5000/notes", {
@@ -834,7 +838,7 @@ function showClipboardHistory(popup) {
       });
     }
     document.body.appendChild(card);
-    makeModalDraggable(card);
+    // makeModalDraggable(card);
     requestAnimationFrame(() => {
       card.style.opacity = "1";
     });
