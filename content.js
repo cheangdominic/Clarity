@@ -1163,7 +1163,7 @@ function showHighlightColorPicker(selectionRect, popupRect, onPick, onCancel) {
     top: `${window.scrollY + popupRect.top - 8}px`,
     left: `${window.scrollX + selectionRect.left + selectionRect.width / 2}px`,
     transform: "translateX(-50%) translateY(-100%)",
-    background: "#111",
+    background: "#333",
     color: "#fff",
     padding: "8px 10px",
     borderRadius: "10px",
