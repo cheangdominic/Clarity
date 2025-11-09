@@ -162,7 +162,6 @@ function makeModalDraggable(modal) {
     offsetY = 0,
     isDragging = false;
 
-  // Create a separate drag handle element that only covers the title area
   const dragHandle = document.createElement("div");
   dragHandle.style.cssText = `
     position: absolute;
@@ -174,7 +173,6 @@ function makeModalDraggable(modal) {
     z-index: 1;
   `;
 
-  // Insert the drag handle at the beginning of the header
   header.style.position = "relative";
   header.insertBefore(dragHandle, header.firstChild);
 
@@ -199,7 +197,6 @@ function makeModalDraggable(modal) {
     const viewportWidth = window.innerWidth;
     const viewportHeight = window.innerHeight;
 
-    // Keep modal within viewport bounds
     newX = Math.max(10, Math.min(newX, viewportWidth - modalRect.width - 10));
     newY = Math.max(10, Math.min(newY, viewportHeight - modalRect.height - 10));
 
@@ -243,15 +240,17 @@ function createModal(id, title) {
     display: "none",
     fontFamily: "system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif",
     position: "fixed",
-    transition: "opacity 0.2s ease, transform 0.2s ease",
+    transition: "opacity 0.3s ease, transform 0.3s ease",
+    opacity: "0",
+    transform: "scale(0.95) translateY(-10px)",
   });
   modal.innerHTML = `
    <div class="modal-header" style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;background:#333;color:#fff;">
      <span style="font-weight:600;">${title}</span>
      <div class="modal-controls" style="display:flex;align-items:center;gap: 1rem;">
       <button class="collapse-btn" style="background:none;border:none;color:#fff;font-size:20px;cursor:pointer;padding:0 5px;line-height:1;" title="Collapse/Expand">
-                      <span class="collapse-icon">−</span>
-                  </button>
+        <span class="collapse-icon">−</span>
+      </button>
       <button class="close-btn" style="background:none;border:none;color:#fff;font-size:20px;cursor:pointer;padding:0;line-height:1;">×</button>
       </div>
    </div>
@@ -259,19 +258,47 @@ function createModal(id, title) {
   `;
   document.body.appendChild(modal);
 
+  let currentHighlight = null;
+
+  modal.setHighlight = function (highlightEl) {
+    currentHighlight = highlightEl;
+  };
+
   modal.querySelector(".close-btn").onclick = () => {
-    modal.style.display = "none";
+    if (currentHighlight) {
+      currentHighlight.style.backgroundColor = "";
+      currentHighlight.style.boxShadow = "";
+    }
+    modal.style.opacity = "0";
+    modal.style.transform = "scale(0.95) translateY(-10px)";
+    setTimeout(() => {
+      modal.style.display = "none";
+    }, 300);
   };
 
   modal.addEventListener("mouseenter", () => {
-    if (modal._highlight) {
-      modal._highlight.style.backgroundColor = "#FFFF00";
+    if (currentHighlight) {
+      if (!currentHighlight._originalBackground) {
+        currentHighlight._originalBackground =
+          currentHighlight.style.backgroundColor;
+      }
+      if (!currentHighlight._originalBoxShadow) {
+        currentHighlight._originalBoxShadow = currentHighlight.style.boxShadow;
+      }
+
+      currentHighlight.style.backgroundColor = "#FFFF0088";
+      currentHighlight.style.boxShadow = "0 0 8px rgba(255, 255, 0, 0.8)";
+      currentHighlight.style.transition = "all 0.3s ease";
     }
   });
 
   modal.addEventListener("mouseleave", () => {
-    if (modal._highlight) {
-      modal._highlight.style.backgroundColor = "";
+    if (currentHighlight) {
+      // Restore original styles
+      currentHighlight.style.backgroundColor =
+        currentHighlight._originalBackground || "";
+      currentHighlight.style.boxShadow =
+        currentHighlight._originalBoxShadow || "";
     }
   });
 
@@ -291,6 +318,7 @@ function createModal(id, title) {
       icon.textContent = "+";
     }
   };
+
   makeModalDraggable(modal);
   return modal;
 }
@@ -359,7 +387,7 @@ function showHighlightPopup() {
   });
   popup.querySelector("#summarizeBtn").onclick = async () => {
     const modal = createModal(`summaryModal-${Date.now()}`, "Summary");
-    modal._highlight = highlightSpan;
+    modal.setHighlight(highlightSpan);
     const content = modal.querySelector(".modal-content");
     showLoadingSpinner(content);
     modal.style.display = "block";
@@ -373,6 +401,7 @@ function showHighlightPopup() {
 
     modal.style.opacity = "0";
     modal.style.zIndex = "1000000";
+    modal.style.fontFamily = `Segoe UI`;
     requestAnimationFrame(() => (modal.style.opacity = "1"));
 
     try {
@@ -390,7 +419,7 @@ function showHighlightPopup() {
 
   popup.querySelector("#notesBtn").onclick = async () => {
     const modal = createModal(`notesModal-${Date.now()}`, "Notes");
-    modal._highlight = highlightSpan;
+    modal.setHighlight(highlightSpan);
     const content = modal.querySelector(".modal-content");
     showLoadingSpinner(content);
     modal.style.display = "block";
@@ -403,6 +432,7 @@ function showHighlightPopup() {
 
     modal.style.opacity = "0";
     modal.style.zIndex = "1000000";
+    modal.style.fontFamily = `Segoe UI`;
     requestAnimationFrame(() => (modal.style.opacity = "1"));
     try {
       const res = await fetch("http://localhost:5000/notes", {
