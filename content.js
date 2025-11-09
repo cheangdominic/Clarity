@@ -30,7 +30,6 @@ function inlineMarkdown(s) {
   return s;
 }
 
-
 function escapeHtml(text) {
   return text
     .replace(/&/g, "&amp;")
@@ -175,7 +174,12 @@ function createModal(id, title) {
   modal.innerHTML = `
    <div class="modal-header" style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;background:#333;color:#fff;">
      <span style="font-weight:600;">${title}</span>
-     <button class="close-btn" style="background:none;border:none;color:#fff;font-size:20px;cursor:pointer;padding:0;line-height:1;">×</button>
+     <div class="modal-controls" style="display:flex;align-items:center;gap: 1rem;">
+      <button class="collapse-btn" style="background:none;border:none;color:#fff;font-size:20px;cursor:pointer;padding:0 5px;line-height:1;" title="Collapse/Expand">
+                      <span class="collapse-icon">−</span>
+                  </button>
+      <button class="close-btn" style="background:none;border:none;color:#fff;font-size:20px;cursor:pointer;padding:0;line-height:1;">×</button>
+      </div>
    </div>
    <div class="modal-content" style="padding:14px 16px;max-height:220px;overflow:auto;font-size:14px;line-height:1.45;color:#333;"></div>
   `;
@@ -187,6 +191,24 @@ function createModal(id, title) {
       const parent = span.parentNode;
       while (span.firstChild) parent.insertBefore(span.firstChild, span);
       parent.removeChild(span);
+    }
+  };
+
+  const content = modal.querySelector(".modal-content");
+  modal.querySelector(".collapse-btn").onclick = (e) => {
+    const icon = modal.querySelector(".collapse-icon");
+
+    // Use a class toggle for CSS-based collapsing
+    if (modal.classList.contains("collapsed")) {
+      modal.classList.remove("collapsed");
+      content.style.maxHeight = "220px"; // Expand to full height
+      content.style.padding = "14px 16px";
+      icon.textContent = "−"; // Change icon to minus
+    } else {
+      modal.classList.add("collapsed");
+      content.style.maxHeight = "0"; // Collapse
+      content.style.padding = "0 16px"; // Keep horizontal padding or set to '0 16px'
+      icon.textContent = "+"; // Change icon to plus
     }
   };
   makeModalDraggable(modal);
@@ -268,6 +290,100 @@ function showHighlightPopup() {
       content.innerHTML = `<p style="color:#a00;">Failed to fetch summary.</p>`;
     }
   };
+  //   // We create the modal div here, as the previous code was likely doing this inside createModal
+  //   const modal = document.createElement("div");
+  //   modal.id = `summaryModal-${Date.now()}`;
+
+  //   // Applying necessary styles directly (based on your createModal function)
+  //   Object.assign(modal.style, {
+  //     width: "340px",
+  //     maxWidth: "90%",
+  //     background: "#fff",
+  //     borderRadius: "10px",
+  //     boxShadow: "0 4px 20px rgba(0,0,0,0.25)",
+  //     zIndex: "10000001", // High z-index to ensure it is on top
+  //     overflow: "hidden",
+  //     display: "none",
+  //     fontFamily:
+  //       "system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif",
+  //     position: "fixed", // Use fixed for easier dragging
+  //     transition: "opacity 0.2s ease, transform 0.2s ease",
+  //   });
+
+  //   // 1. Insert the new collapsible HTML structure
+  //   const modalTitle = "Summary"; // Assuming the title is 'Summary'
+  //   modal.innerHTML = `
+  //       <div class="modal-header" style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;background:#333;color:#fff; cursor:move;">
+  //           <span class="modal-title" style="font-weight:600;">${modalTitle}</span>
+  //           <div>
+  //               <button class="collapse-btn" style="background:none;border:none;color:#fff;font-size:20px;cursor:pointer;padding:0 5px;line-height:1;" title="Collapse/Expand">
+  //                   <span class="collapse-icon">−</span>
+  //               </button>
+  //               <button class="close-btn" style="background:none;border:none;color:#fff;font-size:20px;cursor:pointer;padding:0;line-height:1;" title="Close">×</button>
+  //           </div>
+  //       </div>
+  //       <div class="modal-content" style="padding:14px 16px;max-height:220px;overflow:auto;font-size:14px;line-height:1.45;color:#333; transition:max-height 0.3s ease-out, padding 0.3s ease-out;">
+  //           </div>
+  //   `;
+
+  //   document.body.appendChild(modal);
+
+  //   const content = modal.querySelector(".modal-content");
+  //   // const highlightSpan = modal._highlight; // Uncomment if needed
+
+  //   // 2. Add Collapse Logic
+  //   modal.querySelector(".collapse-btn").onclick = (e) => {
+  //     const icon = modal.querySelector(".collapse-icon");
+
+  //     // Use a class toggle for CSS-based collapsing
+  //     if (modal.classList.contains("collapsed")) {
+  //       modal.classList.remove("collapsed");
+  //       content.style.maxHeight = "220px"; // Expand to full height
+  //       content.style.padding = "14px 16px";
+  //       icon.textContent = "−"; // Change icon to minus
+  //     } else {
+  //       modal.classList.add("collapsed");
+  //       content.style.maxHeight = "0"; // Collapse
+  //       content.style.padding = "0 16px"; // Keep horizontal padding or set to '0 16px'
+  //       icon.textContent = "+"; // Change icon to plus
+  //     }
+  //   };
+
+  //   // 3. Add Close Logic
+  //   modal.querySelector(".close-btn").onclick = () => {
+  //     modal.remove(); // Use .remove() for a clean exit
+  //     // Add logic here to re-show the original 'popup' if you want it back
+  //     // popup.style.display = 'block';
+  //   };
+
+  //   // 4. Initial Modal Setup and Positioning (Simplified for Draggability)
+  //   makeModalDraggable(modal); // Ensure your drag function is called here
+
+  //   showLoadingSpinner(content);
+  //   modal.style.display = "block";
+  //   const rect = popup.getBoundingClientRect();
+
+  //   // Simplified positioning for better dragging (position: fixed)
+  //   modal.style.top = `${rect.top - 12}px`;
+  //   modal.style.left = `${rect.left + rect.width / 2}px`;
+  //   modal.style.transform = "translateX(-50%)"; // Only horizontal center
+
+  //   modal.style.opacity = "0";
+  //   requestAnimationFrame(() => (modal.style.opacity = "1"));
+
+  //   // 5. Fetch Data
+  //   try {
+  //     const res = await fetch("http://localhost:5000/summarize", {
+  //       method: "POST",
+  //       headers: { "Content-Type": "application/json" },
+  //       body: JSON.stringify({ text: selectedText }),
+  //     });
+  //     const data = await res.json();
+  //     content.innerHTML = data.summary || "No summary available.";
+  //   } catch {
+  //     content.innerHTML = `<p style="color:#a00;">Failed to fetch summary.</p>`;
+  //   }
+  // };
 
   popup.querySelector("#notesBtn").onclick = async () => {
     const modal = createModal(`notesModal-${Date.now()}`, "Notes");
@@ -298,10 +414,10 @@ function showHighlightPopup() {
     const selection = window.getSelection();
     const selectedText = selection.toString().trim();
     if (!selectedText) return;
-  
+
     const oldBox = document.getElementById("centerBox");
     if (oldBox) oldBox.remove();
-  
+
     const box = document.createElement("div");
     box.id = "centerBox";
     Object.assign(box.style, {
@@ -318,12 +434,12 @@ function showHighlightPopup() {
       fontSize: "16px",
       textAlign: "center",
     });
-  
+
     const title = document.createElement("div");
     title.innerText = "Select language:";
     title.style.marginBottom = "10px";
     box.appendChild(title);
-  
+
     const select = document.createElement("select");
     Object.assign(select.style, {
       padding: "6px",
@@ -333,7 +449,7 @@ function showHighlightPopup() {
       fontSize: "14px",
       cursor: "pointer",
     });
-  
+
     const languages = {
       en: "English",
       es: "Spanish",
@@ -346,7 +462,7 @@ function showHighlightPopup() {
       zh: "Chinese",
       ar: "Arabic",
     };
-  
+
     for (const [code, name] of Object.entries(languages)) {
       const opt = document.createElement("option");
       opt.value = code;
@@ -354,7 +470,7 @@ function showHighlightPopup() {
       select.appendChild(opt);
     }
     box.appendChild(select);
-  
+
     const translateBtn = document.createElement("button");
     translateBtn.innerText = "Translate";
     Object.assign(translateBtn.style, {
@@ -368,13 +484,13 @@ function showHighlightPopup() {
     });
     box.appendChild(document.createElement("br"));
     box.appendChild(translateBtn);
-  
+
     const output = document.createElement("div");
     output.style.marginTop = "15px";
     output.style.fontSize = "15px";
     output.innerText = "";
     box.appendChild(output);
-  
+
     const closeBtn = document.createElement("button");
     closeBtn.innerText = "Close";
     Object.assign(closeBtn.style, {
@@ -389,9 +505,9 @@ function showHighlightPopup() {
     closeBtn.addEventListener("click", () => box.remove());
     box.appendChild(document.createElement("br"));
     box.appendChild(closeBtn);
-  
+
     document.body.appendChild(box);
-  
+
     translateBtn.addEventListener("click", async () => {
       const targetLang = select.value;
       output.innerText = "Translating...";
@@ -407,30 +523,62 @@ function showHighlightPopup() {
         if (!res.ok) throw new Error("Translation request failed");
         const data = await res.json();
         const translated = data.translatedText || "Translation failed.";
-  
+
         // Replace the selected text with a hoverable span
         if (selection.rangeCount > 0) {
           const range = selection.getRangeAt(0);
           range.deleteContents();
-  
+
           const span = document.createElement("span");
           span.textContent = translated;
           span.style.backgroundColor = "rgba(255,255,0,0.2)";
           span.style.transition = "background-color 0.3s";
           span.style.cursor = "help";
-          span.title = `Original: ${selectedText}`;
-  
+          // span.title = `Original: ${selectedText}`;
+          // --- Custom Tooltip Element ---
+          const tooltip = document.createElement("div");
+          Object.assign(tooltip.style, {
+            position: "absolute",
+            visibility: "hidden", // Start hidden
+            padding: "8px",
+            width: "500px",
+            borderRadius: "4px",
+            boxShadow: "0 2px 5px rgba(0,0,0,0.4)",
+            zIndex: "10000000",
+          });
+
+          // --- Tooltip Content Structure ---
+          tooltip.innerHTML = `
+        <div style="background: black; color: white; padding: 4px 8px; font-weight: bold; border-radius: 4px 4px 0 0;">
+            Original Text
+        </div>
+        <div style="background: white; color: black; padding: 8px; border-radius: 0 0 4px 4px;">
+            ${selectedText}
+        </div>
+    `;
+
+          document.body.appendChild(tooltip); // Append to body to ensure it's on top
+
           // Optional: subtle hover animation
-          span.addEventListener("mouseenter", () => {
+          span.addEventListener("mouseenter", (e) => {
             span.style.backgroundColor = "rgba(255,255,0,0.4)";
+
+            // Show and position the custom tooltip
+            Object.assign(tooltip.style, {
+              visibility: "visible",
+              // Position near the mouse/span, adjusted slightly for offset
+              left: `${e.pageX + 10}px`,
+              top: `${e.pageY + 10}px`,
+            });
           });
           span.addEventListener("mouseleave", () => {
             span.style.backgroundColor = "rgba(255,255,0,0.2)";
+            tooltip.style.visibility = "hidden";
           });
-  
+
           range.insertNode(span);
         }
-  
+
         box.remove(); // close popup
       } catch (err) {
         console.error("Translation error:", err);
@@ -515,8 +663,8 @@ function showClipboardHistory(popup) {
     card.id = "clipboardHistoryCard";
     Object.assign(card.style, {
       position: "absolute",
-      background: "white",
-      color: "black",
+      background: "black",
+      color: "white",
       padding: "12px",
       borderRadius: "8px",
       boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
@@ -544,15 +692,19 @@ function showClipboardHistory(popup) {
       `;
     } else {
       card.innerHTML = `
-        <div style="font-weight:bold;margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid #eee;display:flex;justify-content:space-between;align-items:center;">
+        <div style="font-weight:bold;margin-bottom:12px;padding:8px;border-bottom:1px solid #eee;display:flex;justify-content:space-between;align-items:center;">
           <span>📋 Clipboard History</span>
-          <button id="clearHistoryBtn" style="background:#ff5252;color:white;border:none;padding:4px 8px;border-radius:4px;font-size:11px;cursor:pointer;">Clear</button>
+          <div style="display:flex;align-items:center;">
+            <button id="clearHistoryBtn" style="background:#ff5252;color:white;border:none;padding:4px 8px;border-radius:4px;font-size:11px;cursor:pointer;">Clear</button>
+            <button id="closeHistoryBtn" style="background:none;border:none;color:white;font-size:20px;cursor:pointer;line-height:1;padding:5px;margin-left:8px;">×</button>
+          </div>
         </div>
       `;
       const list = document.createElement("div");
       list.style.display = "flex";
       list.style.flexDirection = "column";
       list.style.gap = "8px";
+      list.style.color = "black";
       history.slice(0, 10).forEach((item) => {
         const itemDiv = document.createElement("div");
         Object.assign(itemDiv.style, {
@@ -609,6 +761,10 @@ function showClipboardHistory(popup) {
             popup.remove();
           });
         }
+      });
+      card.querySelector("#closeHistoryBtn").addEventListener("click", (e) => {
+        e.stopPropagation();
+        card.remove();
       });
     }
     document.body.appendChild(card);
