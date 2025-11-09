@@ -453,8 +453,9 @@ function showHighlightPopup() {
 
     const range = selection.getRangeAt(0).cloneRange();
     const rectSel = range.getBoundingClientRect();
+    const rectPopup = popup.getBoundingClientRect();
 
-    showHighlightColorPicker(rectSel, (styleSpec) => {
+    showHighlightColorPicker(rectSel, rectPopup, (styleSpec) => {
       try {
         const extracted = range.extractContents();
         const highlight = document.createElement("span");
@@ -465,6 +466,10 @@ function showHighlightPopup() {
         highlight.style.borderRadius = "2px";
         highlight.style.padding = "0 2px";
         highlight.className = "clarity-highlight";
+        // assign a stable id for later lookups from the Tags panel
+        if (!highlight.dataset.clarityId) {
+          highlight.dataset.clarityId = generateHighlightId();
+        }
         highlight.appendChild(extracted);
         range.insertNode(highlight);
         selection.removeAllRanges();
@@ -773,20 +778,52 @@ function showHighlightsPanel(popup) {
           openBtn.textContent = "Open";
           openBtn.style.fontSize = "11px";
           openBtn.style.border = "1px solid #ddd";
-          openBtn.style.background = "#fff";
+          openBtn.style.background = "#f7f7f7";
+          openBtn.style.color = "#333";
           openBtn.style.borderRadius = "6px";
           openBtn.style.padding = "4px 8px";
           openBtn.style.cursor = "pointer";
           openBtn.addEventListener("click", (e) => {
             e.stopPropagation();
-            window.open(item.url, "_blank");
+            if ((item.url || "") === location.href) {
+              const el = findHighlightByRecord(item);
+              if (el) {
+                try {
+                  el.scrollIntoView({ behavior: "smooth", block: "center", inline: "nearest" });
+                } catch (_) {
+                  el.scrollIntoView();
+                }
+                flashHighlight(el);
+                showTagActionsMenu(el);
+              } else {
+                // Try to recreate from text on same page
+                const recreated = findAndCreateHighlightByText(item.text, item);
+                if (recreated) {
+                  try {
+                    recreated.scrollIntoView({ behavior: "smooth", block: "center", inline: "nearest" });
+                  } catch (_) {
+                    recreated.scrollIntoView();
+                  }
+                  flashHighlight(recreated);
+                  showTagActionsMenu(recreated);
+                } else {
+                  window.focus();
+                }
+              }
+            } else {
+              try {
+                chrome.storage?.local?.set({ clarityPendingOpen: { ...item, ts: Date.now() } });
+              } catch (_) {}
+              window.open(item.url, "_blank");
+            }
           });
 
           const copyBtn = document.createElement("button");
           copyBtn.textContent = "Copy";
           copyBtn.style.fontSize = "11px";
           copyBtn.style.border = "1px solid #ddd";
-          copyBtn.style.background = "#fff";
+          copyBtn.style.background = "#f7f7f7";
+          copyBtn.style.color = "#333";
           copyBtn.style.borderRadius = "6px";
           copyBtn.style.padding = "4px 8px";
           copyBtn.style.cursor = "pointer";
@@ -899,9 +936,18 @@ function showTagActionsMenu(anchorEl) {
     });
   };
 
-  chrome.storage.local.get(["tagColors"], (res) => {
-    renderBadges(res.tagColors || {});
-  });
+  try {
+    chrome.storage?.local?.get(["tagColors"], (res) => {
+      try {
+        renderBadges((res && res.tagColors) || {});
+      } catch (_) {
+        renderBadges({});
+      }
+    });
+  } catch (_) {
+    // If extension context is invalid, fall back to neutral badges
+    renderBadges({});
+  }
 
   const createTagBtn = mkBtn("Create Tag");
   const openTagsBtn = mkBtn("Tags");
@@ -917,7 +963,12 @@ function showTagActionsMenu(anchorEl) {
     const uniqueTags = Array.from(new Set(tags));
     setHighlightTags(anchorEl, uniqueTags);
 
+    if (!anchorEl.dataset.clarityId) {
+      anchorEl.dataset.clarityId = generateHighlightId();
+    }
+
     const record = {
+      id: anchorEl.dataset.clarityId || "",
       tags: uniqueTags,
       tag: uniqueTags[0] || "",
       text: anchorEl.textContent || "",
@@ -1005,6 +1056,55 @@ function getLastHighlightInDocument() {
   return nodes.length ? nodes[nodes.length - 1] : null;
 }
 
+function generateHighlightId() {
+  return `cl-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function normalizeText(s) {
+  return (s || "").replace(/\s+/g, " ").trim();
+}
+
+function findHighlightByRecord(item) {
+  try {
+    const wantId = item && item.id;
+    if (wantId) {
+      const nodesById = Array.from(document.querySelectorAll(".clarity-highlight"));
+      const byId = nodesById.find((n) => n.dataset && n.dataset.clarityId === wantId);
+      if (byId) return byId;
+    }
+    const wantText = normalizeText(item && item.text);
+    const wantTag = (item && (item.tag || (Array.isArray(item.tags) && item.tags[0]))) || "";
+    const nodes = Array.from(document.querySelectorAll(".clarity-highlight"));
+
+    let candidates = nodes.filter((n) => normalizeText(n.textContent) === wantText);
+    if (!candidates.length && wantText) {
+      candidates = nodes.filter((n) => {
+        const t = normalizeText(n.textContent);
+        return t.includes(wantText) || wantText.includes(t);
+      });
+    }
+    if (wantTag) {
+      const filtered = candidates.filter((n) => getHighlightTags(n).includes(wantTag));
+      if (filtered.length) candidates = filtered;
+    }
+    return candidates[0] || null;
+  } catch (_) {
+    return null;
+  }
+}
+
+function flashHighlight(el) {
+  if (!el) return;
+  const prevBoxShadow = el.style.boxShadow;
+  const prevTransition = el.style.transition;
+  el.style.transition = "box-shadow 0.25s ease";
+  el.style.boxShadow = "0 0 0 3px rgba(255,165,0,0.9), 0 0 10px rgba(255,165,0,0.6)";
+  setTimeout(() => {
+    el.style.boxShadow = prevBoxShadow || "";
+    el.style.transition = prevTransition || "";
+  }, 1200);
+}
+
 function scheduleHoverMenuHide(anchorEl) {
   if (hoverHideTimeout) clearTimeout(hoverHideTimeout);
   hoverHideTimeout = setTimeout(() => {
@@ -1027,15 +1127,16 @@ function scheduleHoverMenuHide(anchorEl) {
   }, 180);
 }
 
-function showHighlightColorPicker(rect, onPick, onCancel) {
+function showHighlightColorPicker(selectionRect, popupRect, onPick, onCancel) {
   const id = "highlightColorPicker";
   document.getElementById(id)?.remove();
   const picker = document.createElement("div");
   picker.id = id;
   Object.assign(picker.style, {
     position: "absolute",
-    top: `${window.scrollY + rect.top - 8}px`,
-    left: `${window.scrollX + rect.left + rect.width / 2}px`,
+    // initial placement: above the popup menu so we never overlap it
+    top: `${window.scrollY + popupRect.top - 8}px`,
+    left: `${window.scrollX + selectionRect.left + selectionRect.width / 2}px`,
     transform: "translateX(-50%) translateY(-100%)",
     background: "#111",
     color: "#fff",
@@ -1113,6 +1214,15 @@ function showHighlightColorPicker(rect, onPick, onCancel) {
 
   document.body.appendChild(picker);
 
+  // Flip below the selected text if there isn't space above
+  try {
+    const pr = picker.getBoundingClientRect();
+    if (pr.top < 8) {
+      picker.style.top = `${window.scrollY + selectionRect.bottom + 8}px`;
+      picker.style.transform = "translateX(-50%) translateY(0)";
+    }
+  } catch (_) {}
+
   const close = (e) => {
     if (!picker.contains(e.target)) {
       try {
@@ -1148,6 +1258,9 @@ function setHighlightTags(el, tags) {
     new Set((tags || []).map((t) => t.trim()).filter(Boolean))
   );
   if (!el.dataset) el.dataset = {};
+  if (!el.dataset.clarityId) {
+    el.dataset.clarityId = generateHighlightId();
+  }
   el.dataset.tags = unique.join(",");
   el.title = unique.length ? `Tags: ${unique.join(", ")}` : "";
   el.classList.add("clarity-highlight");
