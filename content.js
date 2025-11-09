@@ -416,7 +416,6 @@ function showHighlightPopup() {
   }
 
   const range = selection.getRangeAt(0);
-  const highlightSpan = wrapSelectionInSpan(range);
 
   const rect = range.getBoundingClientRect();
   const popup = document.createElement("div");
@@ -465,7 +464,8 @@ function showHighlightPopup() {
   });
   popup.querySelector("#summarizeBtn").onclick = async () => {
     const modal = createModal(`summaryModal-${Date.now()}`, "Summary");
-    modal.setHighlight(highlightSpan);
+    // No temporary highlight element; avoid DOM mutation on selection
+    modal.setHighlight(null);
     const content = modal.querySelector(".modal-content");
     showLoadingSpinner(content);
     modal.style.display = "block";
@@ -502,7 +502,8 @@ function showHighlightPopup() {
 
   popup.querySelector("#notesBtn").onclick = async () => {
     const modal = createModal(`notesModal-${Date.now()}`, "Notes");
-    modal.setHighlight(highlightSpan);
+    // No temporary highlight element; avoid DOM mutation on selection
+    modal.setHighlight(null);
     const content = modal.querySelector(".modal-content");
     showLoadingSpinner(content);
     modal.style.display = "block";
