@@ -320,7 +320,7 @@ function showHighlightPopup() {
   document.body.appendChild(popup);
   requestAnimationFrame(() => {
     popup.style.opacity = "1";
-    popup.style.transform = "translateX(-50%) translateY(0)";
+    popup.style.transform = "translateX(-50%) translateY(-15%)";
   });
 
   popup.querySelector("#summarizeBtn").onclick = async () => {
@@ -680,12 +680,11 @@ function showClipboardHistory(popup) {
     card.id = "clipboardHistoryCard";
     Object.assign(card.style, {
       position: "absolute",
-      background: "black",
-      color: "white",
-      background: "black",
-      color: "white",
+      background: "white",
+      color: "black",
       padding: "12px",
-      borderRadius: "8px",
+      borderRadius: "10px",
+      overflow: "hidden",
       boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
       zIndex: "1000000",
       minWidth: "300px",
@@ -695,6 +694,7 @@ function showClipboardHistory(popup) {
       opacity: "0",
       transition: "opacity 0.2s ease",
     });
+    
     const popupRect = popup.getBoundingClientRect();
     card.style.top = `${window.scrollY + popupRect.top - 10}px`;
     card.style.left = `${
@@ -711,14 +711,27 @@ function showClipboardHistory(popup) {
       `;
     } else {
       card.innerHTML = `
-        <div class="modal-header" style="font-weight:bold;margin-bottom:12px;padding:8px;border-bottom:1px solid #eee;display:flex;justify-content:space-between;align-items:center;">
-          <span>📋 Clipboard History</span>
-          <div style="display:flex;align-items:center;">
-            <button id="clearHistoryBtn" style="background:#ff5252;color:white;border:none;padding:4px 8px;border-radius:4px;font-size:11px;cursor:pointer;">Clear</button>
-            <button id="closeHistoryBtn" style="background:none;border:none;color:white;font-size:20px;cursor:pointer;line-height:1;padding:5px;margin-left:8px;">×</button>
-          </div>
+      <div class="modal-header" style="
+        background:#333;
+        font-weight:bold;
+        padding:8px;
+        border-bottom:1px solid #eee;
+        display:flex;
+        justify-content:space-between;
+        align-items:center;
+        width:calc(100% + 24px);
+        margin:-12px -12px 12px -12px;
+        border-top-left-radius:10px;
+        border-top-right-radius:10px;
+        box-sizing:border-box;
+      ">
+        <span style="color:white;">📋 Clipboard History</span>
+        <div style="display:flex;align-items:center;">
+          <button id="clearHistoryBtn" style="background:#ff5252;color:white;border:none;padding:4px 8px;border-radius:4px;font-size:11px;cursor:pointer;">Clear</button>
+          <button id="closeHistoryBtn" style="background:none;border:none;color:white;font-size:20px;cursor:pointer;line-height:1;padding:5px;margin-left:8px;">×</button>
         </div>
-      `;
+      </div>
+    `;    
       const list = document.createElement("div");
       list.style.display = "flex";
       list.style.flexDirection = "column";
