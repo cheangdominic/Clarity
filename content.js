@@ -696,12 +696,12 @@ function showHighlightPopup() {
     }
 
     showHighlightColorPicker(rectSel, popupRect, (styleSpec) => {
+      let highlight = null;
       try {
         const extracted = range.extractContents();
-        const highlight = document.createElement("span");
+        highlight = document.createElement("span");
         highlight.style.backgroundColor = styleSpec.background;
-        if (styleSpec.boxShadow)
-          highlight.style.boxShadow = styleSpec.boxShadow;
+        if (styleSpec.boxShadow) highlight.style.boxShadow = styleSpec.boxShadow;
         highlight.style.borderRadius = "2px";
         highlight.style.padding = "0 2px";
         highlight.className = "clarity-highlight";
@@ -709,26 +709,19 @@ function showHighlightPopup() {
         range.insertNode(highlight);
         selection.removeAllRanges();
         lastCreatedHighlight = highlight;
-
-        try {
-          popup.remove();
-        } catch (_) {}
-
-        if (historyCard) {
-          historyCard.remove();
-        }
-
-        if (documentClickListener) {
-          document.removeEventListener("click", documentClickListener);
-          documentClickListener = null;
-        }
-        showTagActionsMenu(highlight);
       } catch (err) {
         console.error("Highlight failed, likely spans multiple elements:", err);
-        alert(
-          "Cannot highlight across complex HTML elements. Try a simpler selection."
-        );
+        alert("Cannot highlight across complex HTML elements. Try a simpler selection.");
+        return;
       }
+
+      try { popup.remove(); } catch (_) {}
+      if (historyCard) { try { historyCard.remove(); } catch (_) {} }
+      if (documentClickListener) {
+        document.removeEventListener("click", documentClickListener);
+        documentClickListener = null;
+      }
+      try { showTagActionsMenu(highlight); } catch (e) { console.warn("Tag menu open failed:", e); }
     });
   });
 
@@ -1194,7 +1187,7 @@ function showTagActionsMenu(anchorEl) {
   menu.style.alignItems = "center";
   menu.style.gap = "8px";
 
-  const makeBtn = (label) => {
+  const mkBtn = (label) => {
     const btn = document.createElement("button");
     btn.textContent = label;
     btn.style.background = "none";
