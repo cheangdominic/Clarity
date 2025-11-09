@@ -265,7 +265,7 @@ function createModal(id, title) {
 
   modal.addEventListener("mouseenter", () => {
     if (modal._highlight) {
-      modal._highlight.style.backgroundColor = "hsla(52, 95%, 62%, 0.35)";
+      modal._highlight.style.backgroundColor = "#FFFF00";
     }
   });
 
