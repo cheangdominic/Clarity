@@ -408,30 +408,50 @@ function showHighlightPopup() {
         const data = await res.json();
         const translated = data.translatedText || "Translation failed.";
   
-        // Replace the selected text with a hoverable span
         if (selection.rangeCount > 0) {
           const range = selection.getRangeAt(0);
-          range.deleteContents();
-  
+          const selectedText = range.toString();
+
+          const leadingSpacesMatch = selectedText.match(/^(\s*)/);
+          const trailingSpacesMatch = selectedText.match(/(\s*)$/);
+
+          const leadingSpaces = leadingSpacesMatch ? leadingSpacesMatch[0] : "";
+          const trailingSpaces = trailingSpacesMatch
+            ? trailingSpacesMatch[0]
+            : "";
+
+          const coreText = selectedText.slice(
+            leadingSpaces.length,
+            selectedText.length - trailingSpaces.length
+          );
+
           const span = document.createElement("span");
           span.textContent = translated;
           span.style.backgroundColor = "rgba(255,255,0,0.2)";
           span.style.transition = "background-color 0.3s";
           span.style.cursor = "help";
-          span.title = `Original: ${selectedText}`;
-  
-          // Optional: subtle hover animation
+          span.title = `Original: ${coreText}`;
+          span.style.whiteSpace = "pre-wrap";
+
           span.addEventListener("mouseenter", () => {
             span.style.backgroundColor = "rgba(255,255,0,0.4)";
           });
           span.addEventListener("mouseleave", () => {
             span.style.backgroundColor = "rgba(255,255,0,0.2)";
           });
-  
-          range.insertNode(span);
+
+          const fragment = document.createDocumentFragment();
+          if (leadingSpaces)
+            fragment.appendChild(document.createTextNode(leadingSpaces));
+          fragment.appendChild(span);
+          if (trailingSpaces)
+            fragment.appendChild(document.createTextNode(trailingSpaces));
+
+          range.deleteContents();
+          range.insertNode(fragment);
         }
-  
-        box.remove(); // close popup
+          
+        box.remove();
       } catch (err) {
         console.error("Translation error:", err);
         output.innerText = "Error fetching translation.";
