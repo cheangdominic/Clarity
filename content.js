@@ -265,6 +265,7 @@ function makeModalDraggable(modal) {
 function createModal(id, title) {
   const modal = document.createElement("div");
   modal.id = id;
+
   Object.assign(modal.style, {
     width: "340px",
     maxWidth: "90%",
@@ -272,25 +273,35 @@ function createModal(id, title) {
     borderRadius: "10px",
     boxShadow: "0 4px 20px rgba(0,0,0,0.25)",
     zIndex: "999999",
-    overflow: "hidden",
     display: "none",
     fontFamily: "system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif",
     position: "fixed",
     transition: "opacity 0.2s ease, transform 0.2s ease",
+    resize: "both",
+    overflow: "hidden",
+    minWidth: "250px",
+    minHeight: "150px",
+    maxWidth: "90vw",
+    maxHeight: "80vh",
+    paddingBottom: "8px",
+    boxSizing: "border-box",
   });
+
   modal.innerHTML = `
-   <div class="modal-header" style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;background:#333;color:#fff;">
-     <span style="font-weight:600;">${title}</span>
-     <div class="modal-controls" style="display:flex;align-items:center;gap: 1rem;">
-      <button class="collapse-btn" style="background:none;border:none;color:#fff;font-size:20px;cursor:pointer;padding:0 5px;line-height:1;" title="Collapse/Expand">
-                      <span class="collapse-icon">−</span>
-                  </button>
-      <button class="close-btn" style="background:none;border:none;color:#fff;font-size:20px;cursor:pointer;padding:0;line-height:1;">×</button>
+    <div class="modal-header" style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;background:#333;color:#fff;cursor:move;">
+      <span style="font-weight:600;">${title}</span>
+      <div class="modal-controls" style="display:flex;align-items:center;gap:1rem;">
+        <button class="collapse-btn" style="background:none;border:none;color:#fff;font-size:20px;cursor:pointer;padding:0 5px;line-height:1;" title="Collapse/Expand">
+          <span class="collapse-icon">−</span>
+        </button>
+        <button class="close-btn" style="background:none;border:none;color:#fff;font-size:20px;cursor:pointer;padding:0;line-height:1;">×</button>
       </div>
-   </div>
-   <div class="modal-content" style="padding:14px 16px;max-height:220px;overflow:auto;font-size:14px;line-height:1.45;color:#333;"></div>
+    </div>
+    <div class="modal-content" style="padding:14px 16px;max-height:220px;overflow:auto;font-size:14px;line-height:1.45;color:#333;"></div>
   `;
+
   document.body.appendChild(modal);
+
   modal.querySelector(".close-btn").onclick = () => {
     modal.style.display = "none";
     if (modal._highlight) {
@@ -302,9 +313,8 @@ function createModal(id, title) {
   };
 
   const content = modal.querySelector(".modal-content");
-  modal.querySelector(".collapse-btn").onclick = (e) => {
+  modal.querySelector(".collapse-btn").onclick = () => {
     const icon = modal.querySelector(".collapse-icon");
-
     if (modal.classList.contains("collapsed")) {
       modal.classList.remove("collapsed");
       content.style.maxHeight = "220px";
@@ -317,6 +327,7 @@ function createModal(id, title) {
       icon.textContent = "+";
     }
   };
+
   makeModalDraggable(modal);
   return modal;
 }
@@ -429,6 +440,11 @@ function showHighlightPopup() {
       content.innerHTML = `<p style="color:#a00;">Failed to fetch summary.</p>`;
     }
   };
+
+  popup.querySelectorAll("button").forEach((btn) => {
+    btn.onmouseenter = () => (btn.style.background = "#555");
+    btn.onmouseleave = () => (btn.style.background = "none");
+  });  
 
   popup.querySelector("#notesBtn").onclick = async () => {
     const modal = createModal(`notesModal-${Date.now()}`, "Notes");
