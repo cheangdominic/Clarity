@@ -31,7 +31,6 @@ if (!document.getElementById("clarity-style")) {
   document.head.appendChild(style);
 }
 
-
 function initContentScript() {
   chrome.storage.local.get(["extensionDisabled"], ({ extensionDisabled }) => {
     if (extensionDisabled) {
@@ -59,7 +58,6 @@ chrome.storage.onChanged.addListener((changes, area) => {
     }
   }
 });
-
 
 function injectClarityStyles() {
   if (document.getElementById("clarity-styles")) return;
@@ -284,7 +282,7 @@ function makeModalDraggable(modal) {
 function positionModalNearPopup(modal, popup) {
   const margin = 12;
 
-  modal.style.position = "fixed";
+  modal.style.position = "absolute";
   modal.style.transform = "none";
   modal.style.opacity = "0";
   modal.style.visibility = "hidden";
@@ -420,43 +418,43 @@ function showHighlightPopup() {
       return;
     }
 
-  const selection = window.getSelection();
-  const selectedText = selection.toString().trim();
-  if (!selectedText) return;
+    const selection = window.getSelection();
+    const selectedText = selection.toString().trim();
+    if (!selectedText) return;
 
-  const oldPopup = document.getElementById("highlightPopup");
-  if (oldPopup) oldPopup.remove();
-  const oldHistoryCard = document.getElementById("clipboardHistoryCard");
-  if (oldHistoryCard) oldHistoryCard.remove();
-  if (documentClickListener) {
-    document.removeEventListener("click", documentClickListener);
-    documentClickListener = null;
-  }
+    const oldPopup = document.getElementById("highlightPopup");
+    if (oldPopup) oldPopup.remove();
+    const oldHistoryCard = document.getElementById("clipboardHistoryCard");
+    if (oldHistoryCard) oldHistoryCard.remove();
+    if (documentClickListener) {
+      document.removeEventListener("click", documentClickListener);
+      documentClickListener = null;
+    }
 
-  const range = selection.getRangeAt(0);
+    const range = selection.getRangeAt(0);
 
-  const rect = range.getBoundingClientRect();
-  const popup = document.createElement("div");
-  popup.id = "highlightPopup";
-  popup.classList.add("clarity-surface", "clarity-popup");
-  Object.assign(popup.style, {
-    position: "absolute",
-    top: `${window.scrollY + rect.top - 40}px`,
-    left: `${window.scrollX + rect.left + rect.width / 2}px`,
-    transform: "translateX(-50%) translateY(-5px)",
-    background: "#333",
-    color: "#fff",
-    padding: "8px 12px",
-    borderRadius: "8px",
-    boxShadow: "0 2px 6px rgba(0,0,0,0.3)",
-    zIndex: "999999",
-    fontSize: "14px",
-    display: "flex",
-    gap: "10px",
-    opacity: "0",
-    transition: "opacity 0.2s ease, transform 0.2s ease",
-  });
-  popup.innerHTML = `
+    const rect = range.getBoundingClientRect();
+    const popup = document.createElement("div");
+    popup.id = "highlightPopup";
+    popup.classList.add("clarity-surface", "clarity-popup");
+    Object.assign(popup.style, {
+      position: "absolute",
+      top: `${window.scrollY + rect.top - 40}px`,
+      left: `${window.scrollX + rect.left + rect.width / 2}px`,
+      transform: "translateX(-50%) translateY(-5px)",
+      background: "#333",
+      color: "#fff",
+      padding: "8px 12px",
+      borderRadius: "8px",
+      boxShadow: "0 2px 6px rgba(0,0,0,0.3)",
+      zIndex: "999999",
+      fontSize: "14px",
+      display: "flex",
+      gap: "10px",
+      opacity: "0",
+      transition: "opacity 0.2s ease, transform 0.2s ease",
+    });
+    popup.innerHTML = `
     <button id="summarizeBtn" style="background:none;border:none;color:white;cursor:pointer;font-weight:600;">✨ Summarize</button>
     <button id="notesBtn" style="background:none;border:none;color:white;cursor:pointer;font-weight:600;">📝 Notes</button>
     <button id="translateBtn" style="background:none;border:none;color:white;cursor:pointer;font-weight:600;">🌐 Translate</button>
@@ -464,117 +462,116 @@ function showHighlightPopup() {
     <button id="highlightBtn" style="background:none;border:none;color:white;cursor:pointer;font-weight:600;">💡 Highlight</button>
   `;
 
-  [
-    "#summarizeBtn",
-    "#notesBtn",
-    "#translateBtn",
-    "#viewHistoryBtn",
-    "#highlightBtn",
-  ].forEach((sel) => {
-    const el = popup.querySelector(sel);
-    if (el) el.classList.add("clarity-link-btn");
-  });
-
-document.body.appendChild(popup);
-const popupRect = popup.getBoundingClientRect();
-popup.style.left = `${rect.left + rect.width / 2 - popupRect.width / 2}px`;
-popup.style.top = `${rect.top + window.scrollY - 48}px`;
-popup.style.opacity = "1";
-popup.style.transform = "none";
-
-  
-  popup.querySelector("#summarizeBtn").onclick = async () => {
-    const modal = createModal(`summaryModal-${Date.now()}`, "Summary");
-    modal.setHighlight(null);
-    const content = modal.querySelector(".modal-content");
-    showLoadingSpinner(content);
-    modal.style.display = "block";
-    modal.style.zIndex = "1000000";
-    modal.style.fontFamily = `Segoe UI`;
-    requestAnimationFrame(() => (modal.style.opacity = "1"));
-    positionModalNearPopup(modal, popup);
-
-    try {
-      const res = await fetch("http://localhost:5000/summarize", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: selectedText }),
-      });
-      const data = await res.json();
-      content.innerHTML = data.summary || "No summary available.";
-    } catch {
-      content.innerHTML = `<p style="color:#a00;">Failed to fetch summary.</p>`;
-    }
-  };
-
-  popup.querySelectorAll("button").forEach((btn) => {
-    btn.addEventListener("mouseenter", () => (btn.style.background = "#555"));
-    btn.addEventListener("mouseleave", () => (btn.style.background = "none"));
-
-    btn.addEventListener("click", () => {
-      btn.style.transform = "scale(0.95)";
-      btn.style.transition = "transform 0.1s ease";
-      setTimeout(() => {
-        btn.style.transform = "scale(1)";
-      }, 100);
-    });
-  });
-
-  popup.querySelector("#notesBtn").onclick = async () => {
-    const modal = createModal(`notesModal-${Date.now()}`, "Notes");
-    modal.setHighlight(null);
-    const content = modal.querySelector(".modal-content");
-    showLoadingSpinner(content);
-    modal.style.display = "block";
-    modal.style.zIndex = "1000000";
-    modal.style.fontFamily = `Segoe UI`;
-    requestAnimationFrame(() => (modal.style.opacity = "1"));
-    positionModalNearPopup(modal, popup);
-    try {
-      const res = await fetch("http://localhost:5000/notes", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: selectedText }),
-      });
-      const data = await res.json();
-      content.innerHTML = markdownToHtml(data.notes) || "No notes available.";
-    } catch {
-      content.innerHTML = `<p style="color:#a00;">Failed to fetch notes.</p>`;
-    }
-  };
-
-  popup.querySelector("#translateBtn").addEventListener("click", async () => {
-    const existingBox = document.getElementById("translateModal");
-    if (existingBox) {
-      existingBox.remove();
-      return;
-    }
-
-    const selection = window.getSelection();
-    const selectedText = selection.toString().trim();
-    if (!selectedText) return;
-
-    const modal = document.createElement("div");
-    modal.id = "translateModal";
-
-    Object.assign(modal.style, {
-      width: "340px",
-      maxWidth: "90%",
-      background: "#fff",
-      borderRadius: "10px",
-      boxShadow: "0 4px 20px rgba(0,0,0,0.25)",
-      zIndex: "1000000",
-      fontFamily:
-        "system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif",
-      position: "fixed",
-      top: "50%",
-      left: "50%",
-      transform: "translate(-50%, -50%) scale(0.95)",
-      opacity: "0",
-      transition: "opacity 0.3s ease, transform 0.3s ease",
+    [
+      "#summarizeBtn",
+      "#notesBtn",
+      "#translateBtn",
+      "#viewHistoryBtn",
+      "#highlightBtn",
+    ].forEach((sel) => {
+      const el = popup.querySelector(sel);
+      if (el) el.classList.add("clarity-link-btn");
     });
 
-    modal.innerHTML = `
+    document.body.appendChild(popup);
+    const popupRect = popup.getBoundingClientRect();
+    popup.style.left = `${rect.left + rect.width / 2 - popupRect.width / 2}px`;
+    popup.style.top = `${rect.top + window.scrollY - 48}px`;
+    popup.style.opacity = "1";
+    popup.style.transform = "none";
+
+    popup.querySelector("#summarizeBtn").onclick = async () => {
+      const modal = createModal(`summaryModal-${Date.now()}`, "Summary");
+      modal.setHighlight(null);
+      const content = modal.querySelector(".modal-content");
+      showLoadingSpinner(content);
+      modal.style.display = "block";
+      modal.style.zIndex = "1000000";
+      modal.style.fontFamily = `Segoe UI`;
+      requestAnimationFrame(() => (modal.style.opacity = "1"));
+      positionModalNearPopup(modal, popup);
+
+      try {
+        const res = await fetch("http://localhost:5000/summarize", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text: selectedText }),
+        });
+        const data = await res.json();
+        content.innerHTML = data.summary || "No summary available.";
+      } catch {
+        content.innerHTML = `<p style="color:#a00;">Failed to fetch summary.</p>`;
+      }
+    };
+
+    popup.querySelectorAll("button").forEach((btn) => {
+      btn.addEventListener("mouseenter", () => (btn.style.background = "#555"));
+      btn.addEventListener("mouseleave", () => (btn.style.background = "none"));
+
+      btn.addEventListener("click", () => {
+        btn.style.transform = "scale(0.95)";
+        btn.style.transition = "transform 0.1s ease";
+        setTimeout(() => {
+          btn.style.transform = "scale(1)";
+        }, 100);
+      });
+    });
+
+    popup.querySelector("#notesBtn").onclick = async () => {
+      const modal = createModal(`notesModal-${Date.now()}`, "Notes");
+      modal.setHighlight(null);
+      const content = modal.querySelector(".modal-content");
+      showLoadingSpinner(content);
+      modal.style.display = "block";
+      modal.style.zIndex = "1000000";
+      modal.style.fontFamily = `Segoe UI`;
+      requestAnimationFrame(() => (modal.style.opacity = "1"));
+      positionModalNearPopup(modal, popup);
+      try {
+        const res = await fetch("http://localhost:5000/notes", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text: selectedText }),
+        });
+        const data = await res.json();
+        content.innerHTML = markdownToHtml(data.notes) || "No notes available.";
+      } catch {
+        content.innerHTML = `<p style="color:#a00;">Failed to fetch notes.</p>`;
+      }
+    };
+
+    popup.querySelector("#translateBtn").addEventListener("click", async () => {
+      const existingBox = document.getElementById("translateModal");
+      if (existingBox) {
+        existingBox.remove();
+        return;
+      }
+
+      const selection = window.getSelection();
+      const selectedText = selection.toString().trim();
+      if (!selectedText) return;
+
+      const modal = document.createElement("div");
+      modal.id = "translateModal";
+
+      Object.assign(modal.style, {
+        width: "340px",
+        maxWidth: "90%",
+        background: "#fff",
+        borderRadius: "10px",
+        boxShadow: "0 4px 20px rgba(0,0,0,0.25)",
+        zIndex: "1000000",
+        fontFamily:
+          "system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif",
+        position: "absolute",
+        top: "50%",
+        left: "50%",
+        transform: "translate(-50%, -50%) scale(0.95)",
+        opacity: "0",
+        transition: "opacity 0.3s ease, transform 0.3s ease",
+      });
+
+      modal.innerHTML = `
       <div class="modal-header" style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;background:#333;color:#fff;border-radius:10px 10px 0 0;">
         <span style="font-weight:600;">Translate</span>
         <button class="close-btn" style="background:none;border:none;color:#fff;font-size:20px;cursor:pointer;line-height:1;">×</button>
@@ -598,187 +595,191 @@ popup.style.transform = "none";
       </div>
     `;
 
-    document.body.appendChild(modal);
+      document.body.appendChild(modal);
 
-    setTimeout(() => {
-      modal.style.opacity = "1";
-      modal.style.transform = "translate(-50%, -50%) scale(1)";
-    }, 10);
+      setTimeout(() => {
+        modal.style.opacity = "1";
+        modal.style.transform = "translate(-50%, -50%) scale(1)";
+      }, 10);
 
-    modal.querySelector(".close-btn").addEventListener("click", () => {
-      modal.style.opacity = "0";
-      modal.style.transform = "translate(-50%, -50%) scale(0.95)";
-      setTimeout(() => modal.remove(), 300);
-    });
+      modal.querySelector(".close-btn").addEventListener("click", () => {
+        modal.style.opacity = "0";
+        modal.style.transform = "translate(-50%, -50%) scale(0.95)";
+        setTimeout(() => modal.remove(), 300);
+      });
 
-    const languages = {
-      af: "Afrikaans",
-      sq: "Albanian",
-      am: "Amharic",
-      ar: "Arabic",
-      hy: "Armenian",
-      az: "Azerbaijani",
-      eu: "Basque",
-      be: "Belarusian",
-      bn: "Bengali",
-      bs: "Bosnian",
-      bg: "Bulgarian",
-      ca: "Catalan",
-      ceb: "Cebuano",
-      ny: "Chichewa",
-      zh: "Chinese",
-      co: "Corsican",
-      hr: "Croatian",
-      cs: "Czech",
-      da: "Danish",
-      nl: "Dutch",
-      en: "English",
-      eo: "Esperanto",
-      et: "Estonian",
-      tl: "Filipino",
-      fi: "Finnish",
-      fr: "French",
-      fy: "Frisian",
-      gl: "Galician",
-      ka: "Georgian",
-      de: "German",
-      el: "Greek",
-      gu: "Gujarati",
-      ht: "Haitian Creole",
-      ha: "Hausa",
-      haw: "Hawaiian",
-      iw: "Hebrew",
-      hi: "Hindi",
-      hmn: "Hmong",
-      hu: "Hungarian",
-      is: "Icelandic",
-      ig: "Igbo",
-      id: "Indonesian",
-      ga: "Irish",
-      it: "Italian",
-      ja: "Japanese",
-      jw: "Javanese",
-      kn: "Kannada",
-      kk: "Kazakh",
-      km: "Khmer",
-      ko: "Korean",
-      ku: "Kurdish (Kurmanji)",
-      ky: "Kyrgyz",
-      lo: "Lao",
-      la: "Latin",
-      lv: "Latvian",
-      lt: "Lithuanian",
-      lb: "Luxembourgish",
-      mk: "Macedonian",
-      mg: "Malagasy",
-      ms: "Malay",
-      ml: "Malayalam",
-      mt: "Maltese",
-      mi: "Maori",
-      mr: "Marathi",
-      mn: "Mongolian",
-      my: "Myanmar (Burmese)",
-      ne: "Nepali",
-      no: "Norwegian",
-      ps: "Pashto",
-      fa: "Persian",
-      pl: "Polish",
-      pt: "Portuguese",
-      pa: "Punjabi",
-      ro: "Romanian",
-      ru: "Russian",
-      sm: "Samoan",
-      gd: "Scots Gaelic",
-      sr: "Serbian",
-      st: "Sesotho",
-      sn: "Shona",
-      sd: "Sindhi",
-      si: "Sinhala",
-      sk: "Slovak",
-      sl: "Slovenian",
-      so: "Somali",
-      es: "Spanish",
-      su: "Sundanese",
-      sw: "Swahili",
-      sv: "Swedish",
-      tg: "Tajik",
-      ta: "Tamil",
-      te: "Telugu",
-      th: "Thai",
-      tr: "Turkish",
-      uk: "Ukrainian",
-      ur: "Urdu",
-      uz: "Uzbek",
-      vi: "Vietnamese",
-      cy: "Welsh",
-      xh: "Xhosa",
-      yi: "Yiddish",
-      yo: "Yoruba",
-      zu: "Zulu",
-    };    
+      const languages = {
+        af: "Afrikaans",
+        sq: "Albanian",
+        am: "Amharic",
+        ar: "Arabic",
+        hy: "Armenian",
+        az: "Azerbaijani",
+        eu: "Basque",
+        be: "Belarusian",
+        bn: "Bengali",
+        bs: "Bosnian",
+        bg: "Bulgarian",
+        ca: "Catalan",
+        ceb: "Cebuano",
+        ny: "Chichewa",
+        zh: "Chinese",
+        co: "Corsican",
+        hr: "Croatian",
+        cs: "Czech",
+        da: "Danish",
+        nl: "Dutch",
+        en: "English",
+        eo: "Esperanto",
+        et: "Estonian",
+        tl: "Filipino",
+        fi: "Finnish",
+        fr: "French",
+        fy: "Frisian",
+        gl: "Galician",
+        ka: "Georgian",
+        de: "German",
+        el: "Greek",
+        gu: "Gujarati",
+        ht: "Haitian Creole",
+        ha: "Hausa",
+        haw: "Hawaiian",
+        iw: "Hebrew",
+        hi: "Hindi",
+        hmn: "Hmong",
+        hu: "Hungarian",
+        is: "Icelandic",
+        ig: "Igbo",
+        id: "Indonesian",
+        ga: "Irish",
+        it: "Italian",
+        ja: "Japanese",
+        jw: "Javanese",
+        kn: "Kannada",
+        kk: "Kazakh",
+        km: "Khmer",
+        ko: "Korean",
+        ku: "Kurdish (Kurmanji)",
+        ky: "Kyrgyz",
+        lo: "Lao",
+        la: "Latin",
+        lv: "Latvian",
+        lt: "Lithuanian",
+        lb: "Luxembourgish",
+        mk: "Macedonian",
+        mg: "Malagasy",
+        ms: "Malay",
+        ml: "Malayalam",
+        mt: "Maltese",
+        mi: "Maori",
+        mr: "Marathi",
+        mn: "Mongolian",
+        my: "Myanmar (Burmese)",
+        ne: "Nepali",
+        no: "Norwegian",
+        ps: "Pashto",
+        fa: "Persian",
+        pl: "Polish",
+        pt: "Portuguese",
+        pa: "Punjabi",
+        ro: "Romanian",
+        ru: "Russian",
+        sm: "Samoan",
+        gd: "Scots Gaelic",
+        sr: "Serbian",
+        st: "Sesotho",
+        sn: "Shona",
+        sd: "Sindhi",
+        si: "Sinhala",
+        sk: "Slovak",
+        sl: "Slovenian",
+        so: "Somali",
+        es: "Spanish",
+        su: "Sundanese",
+        sw: "Swahili",
+        sv: "Swedish",
+        tg: "Tajik",
+        ta: "Tamil",
+        te: "Telugu",
+        th: "Thai",
+        tr: "Turkish",
+        uk: "Ukrainian",
+        ur: "Urdu",
+        uz: "Uzbek",
+        vi: "Vietnamese",
+        cy: "Welsh",
+        xh: "Xhosa",
+        yi: "Yiddish",
+        yo: "Yoruba",
+        zu: "Zulu",
+      };
 
-    const select = modal.querySelector("#languageSelect");
-    for (const [code, name] of Object.entries(languages)) {
-      const opt = document.createElement("option");
-      opt.value = code;
-      opt.textContent = name;
-      select.appendChild(opt);
-    }
+      const select = modal.querySelector("#languageSelect");
+      for (const [code, name] of Object.entries(languages)) {
+        const opt = document.createElement("option");
+        opt.value = code;
+        opt.textContent = name;
+        select.appendChild(opt);
+      }
 
-    modal.querySelector("#doTranslate").addEventListener("click", async () => {
-      const targetLang = select.value;
-      const output = modal.querySelector("#translateOutput");
-      output.innerText = "Translating...";
-      try {
-        const res = await fetch("http://localhost:5000/translate", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            text: selectedText,
-            target: targetLang,
-          }),
-        });
-        if (!res.ok) throw new Error("Translation request failed");
-        const data = await res.json();
-        const translated = data.translatedText || "Translation failed.";
+      modal
+        .querySelector("#doTranslate")
+        .addEventListener("click", async () => {
+          const targetLang = select.value;
+          const output = modal.querySelector("#translateOutput");
+          output.innerText = "Translating...";
+          try {
+            const res = await fetch("http://localhost:5000/translate", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                text: selectedText,
+                target: targetLang,
+              }),
+            });
+            if (!res.ok) throw new Error("Translation request failed");
+            const data = await res.json();
+            const translated = data.translatedText || "Translation failed.";
 
-        if (selection.rangeCount > 0) {
-          const range = selection.getRangeAt(0);
-          const selectedText = range.toString();
+            if (selection.rangeCount > 0) {
+              const range = selection.getRangeAt(0);
+              const selectedText = range.toString();
 
-          const leadingSpacesMatch = selectedText.match(/^(\s*)/);
-          const trailingSpacesMatch = selectedText.match(/(\s*)$/);
+              const leadingSpacesMatch = selectedText.match(/^(\s*)/);
+              const trailingSpacesMatch = selectedText.match(/(\s*)$/);
 
-          const leadingSpaces = leadingSpacesMatch ? leadingSpacesMatch[0] : "";
-          const trailingSpaces = trailingSpacesMatch
-            ? trailingSpacesMatch[0]
-            : "";
+              const leadingSpaces = leadingSpacesMatch
+                ? leadingSpacesMatch[0]
+                : "";
+              const trailingSpaces = trailingSpacesMatch
+                ? trailingSpacesMatch[0]
+                : "";
 
-          const span = document.createElement("span");
-          span.dataset.translated = "true";
-          span.style.backgroundColor = "rgba(255,255,0,0.2)";
-          span.style.transition = "background-color 0.3s";
-          span.style.cursor = "help";
-          span.style.borderRadius = "3px";
-          span.style.display = "inline";
-          span.style.whiteSpace = "pre-wrap";
+              const span = document.createElement("span");
+              span.dataset.translated = "true";
+              span.style.backgroundColor = "rgba(255,255,0,0.2)";
+              span.style.transition = "background-color 0.3s";
+              span.style.cursor = "help";
+              span.style.borderRadius = "3px";
+              span.style.display = "inline";
+              span.style.whiteSpace = "pre-wrap";
 
-          span.innerHTML = translated;
+              span.innerHTML = translated;
 
-          const tooltip = document.createElement("div");
-          tooltip.id = "translationTooltip";
-          Object.assign(tooltip.style, {
-            position: "absolute",
-            visibility: "hidden",
-            opacity: "0",
-            borderRadius: "4px",
-            border: "2px solid black",
-            zIndex: "10000000",
-            transition: "opacity 0.2s ease",
-            width: "max-content",
-            maxWidth: "500px",
-          });
-          tooltip.innerHTML = `
+              const tooltip = document.createElement("div");
+              tooltip.id = "translationTooltip";
+              Object.assign(tooltip.style, {
+                position: "absolute",
+                visibility: "hidden",
+                opacity: "0",
+                borderRadius: "4px",
+                border: "2px solid black",
+                zIndex: "10000000",
+                transition: "opacity 0.2s ease",
+                width: "max-content",
+                maxWidth: "500px",
+              });
+              tooltip.innerHTML = `
             <div style="background: #333; color: white; padding: 4px 8px; font-weight: bold; text-align: left;">
               Original Text
             </div>
@@ -786,164 +787,167 @@ popup.style.transform = "none";
               ${selectedText}
             </div>
           `;
-          document.body.appendChild(tooltip);
+              document.body.appendChild(tooltip);
 
-          span.addEventListener("mouseenter", () => {
-            span.style.backgroundColor = "rgba(255,255,0)";
-            tooltip.style.visibility = "visible";
-            tooltip.style.opacity = "1";
-          });
+              span.addEventListener("mouseenter", () => {
+                span.style.backgroundColor = "rgba(255,255,0)";
+                tooltip.style.visibility = "visible";
+                tooltip.style.opacity = "1";
+              });
 
-          span.addEventListener("mousemove", (e) => {
-            tooltip.style.left = `${e.pageX + 10}px`;
-            tooltip.style.top = `${e.pageY + 10}px`;
-          });
+              span.addEventListener("mousemove", (e) => {
+                tooltip.style.left = `${e.pageX + 10}px`;
+                tooltip.style.top = `${e.pageY + 10}px`;
+              });
 
-          span.addEventListener("mouseleave", () => {
-            span.style.backgroundColor = "rgba(255,255,0,0.2)";
-            tooltip.style.opacity = "0";
-            setTimeout(() => (tooltip.style.visibility = "hidden"), 200);
-          });
+              span.addEventListener("mouseleave", () => {
+                span.style.backgroundColor = "rgba(255,255,0,0.2)";
+                tooltip.style.opacity = "0";
+                setTimeout(() => (tooltip.style.visibility = "hidden"), 200);
+              });
 
-          const fragment = document.createDocumentFragment();
-          if (leadingSpaces)
-            fragment.appendChild(document.createTextNode(leadingSpaces));
-          fragment.appendChild(span);
-          if (trailingSpaces)
-            fragment.appendChild(document.createTextNode(trailingSpaces));
+              const fragment = document.createDocumentFragment();
+              if (leadingSpaces)
+                fragment.appendChild(document.createTextNode(leadingSpaces));
+              fragment.appendChild(span);
+              if (trailingSpaces)
+                fragment.appendChild(document.createTextNode(trailingSpaces));
 
-          range.deleteContents();
-          range.insertNode(fragment);
-        }
+              range.deleteContents();
+              range.insertNode(fragment);
+            }
 
-        modal.remove();
-      } catch (err) {
-        console.error("Translation error:", err);
-        modal.querySelector("#translateOutput").innerText =
-          "Error fetching translation.";
-      }
+            modal.remove();
+          } catch (err) {
+            console.error("Translation error:", err);
+            modal.querySelector("#translateOutput").innerText =
+              "Error fetching translation.";
+          }
+        });
     });
-  });
-  
-  popup.querySelector("#viewHistoryBtn").addEventListener("click", (e) => {
-    e.stopPropagation();
-    e.preventDefault();
 
-    const historyCard = document.getElementById("clipboardHistoryCard");
+    popup.querySelector("#viewHistoryBtn").addEventListener("click", (e) => {
+      e.stopPropagation();
+      e.preventDefault();
 
-    if (historyCard) {
-      historyCard.remove();
-      return;
-    }
+      const historyCard = document.getElementById("clipboardHistoryCard");
 
-    showClipboardHistory(popup);
-  });
-
-  popup.querySelector("#highlightBtn").addEventListener("click", (e) => {
-    e.stopPropagation();
-    e.preventDefault();
-
-    const colorPicker = document.getElementById("highlightColorPicker");
-
-    if (colorPicker) {
-      colorPicker.remove();
-      return;
-    }
-
-    const selection = window.getSelection();
-    if (!selection.rangeCount) return;
-
-    const selectedText = selection.toString().trim();
-    if (selectedText.length === 0) return;
-
-    const range = selection.getRangeAt(0).cloneRange();
-    const rectSel = range.getBoundingClientRect();
-    const popupRect = popup.getBoundingClientRect();
-    const historyCard = document.getElementById("clipboardHistoryCard");
-
-    if (historyCard) {
-      historyCard.remove();
-    }
-
-    showHighlightColorPicker(rectSel, popupRect, (styleSpec) => {
-      let highlight = null;
-      try {
-        const extracted = range.extractContents();
-        highlight = document.createElement("span");
-        highlight.style.backgroundColor = styleSpec.background;
-        if (styleSpec.boxShadow)
-          highlight.style.boxShadow = styleSpec.boxShadow;
-        highlight.style.borderRadius = "2px";
-        highlight.style.padding = "0 2px";
-        highlight.className = "clarity-highlight";
-        highlight.appendChild(extracted);
-        range.insertNode(highlight);
-        selection.removeAllRanges();
-        lastCreatedHighlight = highlight;
-      } catch (err) {
-        console.error("Highlight failed, likely spans multiple elements:", err);
-        alert(
-          "Cannot highlight across complex HTML elements. Try a simpler selection."
-        );
+      if (historyCard) {
+        historyCard.remove();
         return;
       }
 
-      try {
-        popup.remove();
-      } catch (_) {}
-      if (historyCard) {
-        try {
-          historyCard.remove();
-        } catch (_) {}
-      }
-      if (documentClickListener) {
-        document.removeEventListener("click", documentClickListener);
-        documentClickListener = null;
-      }
-      try {
-        showTagActionsMenu(highlight);
-      } catch (e) {
-        console.warn("Tag menu open failed:", e);
-      }
+      showClipboardHistory(popup);
     });
-  });
 
-  setTimeout(() => {
-    documentClickListener = (e) => {
+    popup.querySelector("#highlightBtn").addEventListener("click", (e) => {
+      e.stopPropagation();
+      e.preventDefault();
+
+      const colorPicker = document.getElementById("highlightColorPicker");
+
+      if (colorPicker) {
+        colorPicker.remove();
+        return;
+      }
+
+      const selection = window.getSelection();
+      if (!selection.rangeCount) return;
+
+      const selectedText = selection.toString().trim();
+      if (selectedText.length === 0) return;
+
+      const range = selection.getRangeAt(0).cloneRange();
+      const rectSel = range.getBoundingClientRect();
+      const popupRect = popup.getBoundingClientRect();
       const historyCard = document.getElementById("clipboardHistoryCard");
-      const highlightsPanel = document.getElementById("highlightsPanel");
-      if (
-        !popup.contains(e.target) &&
-        (!historyCard || !historyCard.contains(e.target)) &&
-        (!highlightsPanel || !highlightsPanel.contains(e.target))
-      ) {
+
+      if (historyCard) {
+        historyCard.remove();
+      }
+
+      showHighlightColorPicker(rectSel, popupRect, (styleSpec) => {
+        let highlight = null;
+        try {
+          const extracted = range.extractContents();
+          highlight = document.createElement("span");
+          highlight.style.backgroundColor = styleSpec.background;
+          if (styleSpec.boxShadow)
+            highlight.style.boxShadow = styleSpec.boxShadow;
+          highlight.style.borderRadius = "2px";
+          highlight.style.padding = "0 2px";
+          highlight.className = "clarity-highlight";
+          highlight.appendChild(extracted);
+          range.insertNode(highlight);
+          selection.removeAllRanges();
+          lastCreatedHighlight = highlight;
+        } catch (err) {
+          console.error(
+            "Highlight failed, likely spans multiple elements:",
+            err
+          );
+          alert(
+            "Cannot highlight across complex HTML elements. Try a simpler selection."
+          );
+          return;
+        }
+
+        try {
+          popup.remove();
+        } catch (_) {}
         if (historyCard) {
           try {
-            historyCard.classList.add("clarity-exit");
+            historyCard.remove();
           } catch (_) {}
-          setTimeout(() => {
-            try {
-              historyCard.remove();
-            } catch (_) {}
-          }, 170);
         }
-        if (highlightsPanel) {
-          try {
-            highlightsPanel.classList.add("clarity-exit");
-          } catch (_) {}
-          setTimeout(() => {
-            try {
-              highlightsPanel.remove();
-            } catch (_) {}
-          }, 170);
+        if (documentClickListener) {
+          document.removeEventListener("click", documentClickListener);
+          documentClickListener = null;
         }
-        document.removeEventListener("click", documentClickListener);
-        documentClickListener = null;
-      }
-    };
-    document.addEventListener("click", documentClickListener);
-  }, 150);
-})
+        try {
+          showTagActionsMenu(highlight);
+        } catch (e) {
+          console.warn("Tag menu open failed:", e);
+        }
+      });
+    });
+
+    setTimeout(() => {
+      documentClickListener = (e) => {
+        const historyCard = document.getElementById("clipboardHistoryCard");
+        const highlightsPanel = document.getElementById("highlightsPanel");
+        if (
+          !popup.contains(e.target) &&
+          (!historyCard || !historyCard.contains(e.target)) &&
+          (!highlightsPanel || !highlightsPanel.contains(e.target))
+        ) {
+          if (historyCard) {
+            try {
+              historyCard.classList.add("clarity-exit");
+            } catch (_) {}
+            setTimeout(() => {
+              try {
+                historyCard.remove();
+              } catch (_) {}
+            }, 170);
+          }
+          if (highlightsPanel) {
+            try {
+              highlightsPanel.classList.add("clarity-exit");
+            } catch (_) {}
+            setTimeout(() => {
+              try {
+                highlightsPanel.remove();
+              } catch (_) {}
+            }, 170);
+          }
+          document.removeEventListener("click", documentClickListener);
+          documentClickListener = null;
+        }
+      };
+      document.addEventListener("click", documentClickListener);
+    }, 150);
+  });
 }
 function showClipboardHistory(popup) {
   const oldCard = document.getElementById("clipboardHistoryCard");
@@ -970,7 +974,6 @@ function showClipboardHistory(popup) {
       overflow: "hidden",
       transformOrigin: "top center",
     });
-    
 
     card.innerHTML = `
       <div class="modal-header" style="
@@ -1076,10 +1079,16 @@ function showClipboardHistory(popup) {
       let top = popupRect.top - margin - cardRect.height;
       if (top < margin) top = popupRect.bottom + margin;
 
-      top = Math.max(margin, Math.min(top, viewportHeight - cardRect.height - margin));
+      top = Math.max(
+        margin,
+        Math.min(top, viewportHeight - cardRect.height - margin)
+      );
 
       let left = popupRect.left + popupRect.width / 2 - cardRect.width / 2;
-      left = Math.max(margin, Math.min(left, viewportWidth - cardRect.width - margin));
+      left = Math.max(
+        margin,
+        Math.min(left, viewportWidth - cardRect.width - margin)
+      );
 
       card.style.top = `${Math.round(top)}px`;
       card.style.left = `${Math.round(left)}px`;
@@ -1093,7 +1102,7 @@ function showClipboardHistory(popup) {
       card.style.opacity = "0";
       card.style.transform = "scale(0.95) translateY(-10px)";
       setTimeout(() => card.remove(), 200);
-    };    
+    };
 
     const clearBtn = card.querySelector("#clearHistoryBtn");
     clearBtn.onclick = (e) => {
