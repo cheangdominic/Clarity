@@ -287,7 +287,7 @@ function showHighlightPopup() {
         body: JSON.stringify({ text: selectedText }),
       });
       const data = await res.json();
-      content.innerHTML = data.notes || "No notes available.";
+      content.innerHTML = markdownToHtml(data.notes) || "No notes available.";
     } catch {
       content.innerHTML = `<p style="color:#a00;">Failed to fetch notes.</p>`;
     }
@@ -409,14 +409,28 @@ function showHighlightPopup() {
 
         if (selection.rangeCount > 0) {
           const range = selection.getRangeAt(0);
-          range.deleteContents();
+          const selectedText = range.toString();
+
+          const leadingSpacesMatch = selectedText.match(/^(\s*)/);
+          const trailingSpacesMatch = selectedText.match(/(\s*)$/);
+
+          const leadingSpaces = leadingSpacesMatch ? leadingSpacesMatch[0] : "";
+          const trailingSpaces = trailingSpacesMatch
+            ? trailingSpacesMatch[0]
+            : "";
+
+          const coreText = selectedText.slice(
+            leadingSpaces.length,
+            selectedText.length - trailingSpaces.length
+          );
 
           const span = document.createElement("span");
           span.textContent = translated;
           span.style.backgroundColor = "rgba(255,255,0,0.2)";
           span.style.transition = "background-color 0.3s";
           span.style.cursor = "help";
-          span.title = `Original: ${selectedText}`;
+          span.title = `Original: ${coreText}`;
+          span.style.whiteSpace = "pre-wrap";
 
           span.addEventListener("mouseenter", () => {
             span.style.backgroundColor = "rgba(255,255,0,0.4)";
@@ -425,7 +439,15 @@ function showHighlightPopup() {
             span.style.backgroundColor = "rgba(255,255,0,0.2)";
           });
 
-          range.insertNode(span);
+          const fragment = document.createDocumentFragment();
+          if (leadingSpaces)
+            fragment.appendChild(document.createTextNode(leadingSpaces));
+          fragment.appendChild(span);
+          if (trailingSpaces)
+            fragment.appendChild(document.createTextNode(trailingSpaces));
+
+          range.deleteContents();
+          range.insertNode(fragment);
         }
 
         box.remove();
@@ -1136,6 +1158,75 @@ function flashHighlight(el) {
   }, 1200);
 }
 
+function findAndCreateHighlightByText(text, record) {
+  if (!text || typeof text !== "string") return null;
+
+  const tryWrap = (node, start, len) => {
+    try {
+      const range = document.createRange();
+      range.setStart(node, start);
+      range.setEnd(node, start + len);
+      const span = document.createElement("span");
+      span.className = "clarity-highlight";
+      span.style.backgroundColor =
+        record && record.color ? record.color : "hsla(52, 95%, 62%, 0.35)";
+      span.style.borderRadius = "2px";
+      span.style.padding = "0 2px";
+      span.dataset.clarityId = (record && record.id) || generateHighlightId();
+      if (record && (record.tags || record.tag)) {
+        const tags =
+          Array.isArray(record.tags) && record.tags.length
+            ? record.tags
+            : record.tag
+            ? [record.tag]
+            : [];
+        setHighlightTags(span, tags);
+      }
+      range.surroundContents(span);
+      return span;
+    } catch (_) {
+      return null;
+    }
+  };
+
+  const mkFilter = () => ({
+    acceptNode(node) {
+      if (!node || !node.nodeValue) return NodeFilter.FILTER_SKIP;
+      const p = node.parentElement;
+      if (p && p.closest && p.closest(".clarity-highlight"))
+        return NodeFilter.FILTER_SKIP;
+      return node.nodeValue.trim().length
+        ? NodeFilter.FILTER_ACCEPT
+        : NodeFilter.FILTER_SKIP;
+    },
+  });
+
+  const walker = document.createTreeWalker(
+    document.body,
+    NodeFilter.SHOW_TEXT,
+    mkFilter()
+  );
+  while (walker.nextNode()) {
+    const n = walker.currentNode;
+    const i = n.nodeValue.indexOf(text);
+    if (i !== -1) return tryWrap(n, i, text.length);
+  }
+
+  const lower = text.toLowerCase();
+  const walker2 = document.createTreeWalker(
+    document.body,
+    NodeFilter.SHOW_TEXT,
+    mkFilter()
+  );
+  while (walker2.nextNode()) {
+    const n = walker2.currentNode;
+    const v = n.nodeValue;
+    const i = (v || "").toLowerCase().indexOf(lower);
+    if (i !== -1) return tryWrap(n, i, text.length);
+  }
+  return null;
+}
+
 function scheduleHoverMenuHide(anchorEl) {
   if (hoverHideTimeout) clearTimeout(hoverHideTimeout);
   hoverHideTimeout = setTimeout(() => {
@@ -1168,7 +1259,7 @@ function showHighlightColorPicker(selectionRect, popupRect, onPick, onCancel) {
     top: `${window.scrollY + popupRect.top - 8}px`,
     left: `${window.scrollX + selectionRect.left + selectionRect.width / 2}px`,
     transform: "translateX(-50%) translateY(-100%)",
-    background: "#111",
+    background: "#333",
     color: "#fff",
     padding: "8px 10px",
     borderRadius: "10px",
@@ -1334,3 +1425,83 @@ document.addEventListener("mouseout", (e) => {
   if (el.contains(e.relatedTarget)) return;
   scheduleHoverMenuHide(el);
 });
+
+(function rehydrateHighlightsForPage() {
+  try {
+    chrome.storage?.local?.get(["highlights"], (res) => {
+      const list = res && Array.isArray(res.highlights) ? res.highlights : [];
+      if (!list.length) return;
+      let dirty = false;
+      list.forEach((rec) => {
+        try {
+          if (!rec || (rec.url || "") !== location.href) return;
+          let el = findHighlightByRecord(rec);
+          if (!el) {
+            el = findAndCreateHighlightByText(rec.text, rec);
+          }
+          if (el) {
+            if (rec.tags || rec.tag) {
+              const want =
+                Array.isArray(rec.tags) && rec.tags.length
+                  ? rec.tags
+                  : rec.tag
+                  ? [rec.tag]
+                  : [];
+              const have = getHighlightTags(el);
+              const need = want.filter((t) => !have.includes(t));
+              if (need.length) setHighlightTags(el, have.concat(need));
+            }
+            if (!rec.id && el.dataset && el.dataset.clarityId) {
+              rec.id = el.dataset.clarityId;
+              dirty = true;
+            }
+          }
+        } catch (_) {}
+      });
+      if (dirty) {
+        try {
+          chrome.storage.local.set({ highlights: list });
+        } catch (_) {}
+      }
+    });
+  } catch (_) {
+    // ignore if extension context not ready
+  }
+})();
+
+(function checkPendingOpen() {
+  try {
+    chrome.storage?.local?.get(["clarityPendingOpen"], (res) => {
+      const pending = res && res.clarityPendingOpen;
+      if (!pending) return;
+      if ((pending.url || "") !== location.href) return;
+      const ts = pending.ts || 0;
+      if (Date.now() - ts > 60000) {
+        try {
+          chrome.storage.local.remove("clarityPendingOpen");
+        } catch (_) {}
+        return;
+      }
+      let el = findHighlightByRecord(pending);
+      if (!el) el = findAndCreateHighlightByText(pending.text, pending);
+      if (el) {
+        try {
+          el.scrollIntoView({
+            behavior: "smooth",
+            block: "center",
+            inline: "nearest",
+          });
+        } catch (_) {
+          el.scrollIntoView();
+        }
+        flashHighlight(el);
+        showTagActionsMenu(el);
+      }
+      try {
+        chrome.storage.local.remove("clarityPendingOpen");
+      } catch (_) {}
+    });
+  } catch (_) {
+    // ignore; extension context may be unavailable transiently
+  }
+})();
