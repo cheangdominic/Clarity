@@ -544,7 +544,7 @@ popup.style.transform = "none";
   };
 
   popup.querySelector("#translateBtn").addEventListener("click", async () => {
-    const existingBox = document.getElementById("centerBox");
+    const existingBox = document.getElementById("translateModal");
     if (existingBox) {
       existingBox.remove();
       return;
@@ -554,98 +554,180 @@ popup.style.transform = "none";
     const selectedText = selection.toString().trim();
     if (!selectedText) return;
 
-    const box = document.createElement("div");
-    box.id = "centerBox";
-    Object.assign(box.style, {
+    const modal = document.createElement("div");
+    modal.id = "translateModal";
+
+    Object.assign(modal.style, {
+      width: "340px",
+      maxWidth: "90%",
+      background: "#fff",
+      borderRadius: "10px",
+      boxShadow: "0 4px 20px rgba(0,0,0,0.25)",
+      zIndex: "1000000",
+      fontFamily:
+        "system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif",
       position: "fixed",
       top: "50%",
       left: "50%",
-      transform: "translate(-50%, -50%)",
-      background: "#333",
-      color: "#fff",
-      padding: "20px 30px",
-      borderRadius: "12px",
-      boxShadow: "0 4px 10px rgba(0,0,0,0.3)",
-      zIndex: "1000000",
-      fontSize: "16px",
-      textAlign: "center",
+      transform: "translate(-50%, -50%) scale(0.95)",
+      opacity: "0",
+      transition: "opacity 0.3s ease, transform 0.3s ease",
     });
 
-    const title = document.createElement("div");
-    title.innerText = "Select language:";
-    title.style.marginBottom = "10px";
-    box.appendChild(title);
+    modal.innerHTML = `
+      <div class="modal-header" style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;background:#333;color:#fff;border-radius:10px 10px 0 0;">
+        <span style="font-weight:600;">Translate</span>
+        <button class="close-btn" style="background:none;border:none;color:#fff;font-size:20px;cursor:pointer;line-height:1;">×</button>
+      </div>
+      <div class="modal-content" style="padding:14px 16px;font-size:14px;line-height:1.45;color:#333;">
+        <div style="margin-bottom:10px;">Select language:</div>
+        <select id="languageSelect" size="5" style="
+        width: 100%;
+        padding: 6px;
+        border-radius: 6px;
+        border: 1px solid #ccc;
+        font-size: 14px;
+        cursor: pointer;
+        margin-bottom: 10px;
+        outline: none;
+        boxShadow: none;
+      ">
+      </select>
+        <button id="doTranslate" style="width:100%;padding:8px 0;border:none;border-radius:5px;background:#555;color:#fff;cursor:pointer;">Translate</button>
+        <div id="translateOutput" style="margin-top:15px;font-size:15px;"></div>
+      </div>
+    `;
 
-    const select = document.createElement("select");
-    Object.assign(select.style, {
-      padding: "6px",
-      borderRadius: "6px",
-      border: "none",
-      marginBottom: "10px",
-      fontSize: "14px",
-      cursor: "pointer",
+    document.body.appendChild(modal);
+
+    setTimeout(() => {
+      modal.style.opacity = "1";
+      modal.style.transform = "translate(-50%, -50%) scale(1)";
+    }, 10);
+
+    modal.querySelector(".close-btn").addEventListener("click", () => {
+      modal.style.opacity = "0";
+      modal.style.transform = "translate(-50%, -50%) scale(0.95)";
+      setTimeout(() => modal.remove(), 300);
     });
 
     const languages = {
-      en: "English",
-      es: "Spanish",
-      fr: "French",
-      de: "German",
-      it: "Italian",
-      pt: "Portuguese",
-      ja: "Japanese",
-      ko: "Korean",
-      zh: "Chinese",
+      af: "Afrikaans",
+      sq: "Albanian",
+      am: "Amharic",
       ar: "Arabic",
-    };
+      hy: "Armenian",
+      az: "Azerbaijani",
+      eu: "Basque",
+      be: "Belarusian",
+      bn: "Bengali",
+      bs: "Bosnian",
+      bg: "Bulgarian",
+      ca: "Catalan",
+      ceb: "Cebuano",
+      ny: "Chichewa",
+      zh: "Chinese",
+      co: "Corsican",
+      hr: "Croatian",
+      cs: "Czech",
+      da: "Danish",
+      nl: "Dutch",
+      en: "English",
+      eo: "Esperanto",
+      et: "Estonian",
+      tl: "Filipino",
+      fi: "Finnish",
+      fr: "French",
+      fy: "Frisian",
+      gl: "Galician",
+      ka: "Georgian",
+      de: "German",
+      el: "Greek",
+      gu: "Gujarati",
+      ht: "Haitian Creole",
+      ha: "Hausa",
+      haw: "Hawaiian",
+      iw: "Hebrew",
+      hi: "Hindi",
+      hmn: "Hmong",
+      hu: "Hungarian",
+      is: "Icelandic",
+      ig: "Igbo",
+      id: "Indonesian",
+      ga: "Irish",
+      it: "Italian",
+      ja: "Japanese",
+      jw: "Javanese",
+      kn: "Kannada",
+      kk: "Kazakh",
+      km: "Khmer",
+      ko: "Korean",
+      ku: "Kurdish (Kurmanji)",
+      ky: "Kyrgyz",
+      lo: "Lao",
+      la: "Latin",
+      lv: "Latvian",
+      lt: "Lithuanian",
+      lb: "Luxembourgish",
+      mk: "Macedonian",
+      mg: "Malagasy",
+      ms: "Malay",
+      ml: "Malayalam",
+      mt: "Maltese",
+      mi: "Maori",
+      mr: "Marathi",
+      mn: "Mongolian",
+      my: "Myanmar (Burmese)",
+      ne: "Nepali",
+      no: "Norwegian",
+      ps: "Pashto",
+      fa: "Persian",
+      pl: "Polish",
+      pt: "Portuguese",
+      pa: "Punjabi",
+      ro: "Romanian",
+      ru: "Russian",
+      sm: "Samoan",
+      gd: "Scots Gaelic",
+      sr: "Serbian",
+      st: "Sesotho",
+      sn: "Shona",
+      sd: "Sindhi",
+      si: "Sinhala",
+      sk: "Slovak",
+      sl: "Slovenian",
+      so: "Somali",
+      es: "Spanish",
+      su: "Sundanese",
+      sw: "Swahili",
+      sv: "Swedish",
+      tg: "Tajik",
+      ta: "Tamil",
+      te: "Telugu",
+      th: "Thai",
+      tr: "Turkish",
+      uk: "Ukrainian",
+      ur: "Urdu",
+      uz: "Uzbek",
+      vi: "Vietnamese",
+      cy: "Welsh",
+      xh: "Xhosa",
+      yi: "Yiddish",
+      yo: "Yoruba",
+      zu: "Zulu",
+    };    
 
+    const select = modal.querySelector("#languageSelect");
     for (const [code, name] of Object.entries(languages)) {
       const opt = document.createElement("option");
       opt.value = code;
       opt.textContent = name;
       select.appendChild(opt);
     }
-    box.appendChild(select);
 
-    const translateBtn = document.createElement("button");
-    translateBtn.innerText = "Translate";
-    Object.assign(translateBtn.style, {
-      marginTop: "10px",
-      padding: "6px 12px",
-      border: "none",
-      borderRadius: "5px",
-      background: "#555",
-      color: "#fff",
-      cursor: "pointer",
-    });
-    box.appendChild(document.createElement("br"));
-    box.appendChild(translateBtn);
-
-    const output = document.createElement("div");
-    output.style.marginTop = "15px";
-    output.style.fontSize = "15px";
-    output.innerText = "";
-    box.appendChild(output);
-
-    const closeBtn = document.createElement("button");
-    closeBtn.innerText = "Close";
-    Object.assign(closeBtn.style, {
-      marginTop: "10px",
-      padding: "5px 10px",
-      border: "none",
-      borderRadius: "5px",
-      cursor: "pointer",
-      background: "#777",
-      color: "#fff",
-    });
-    closeBtn.addEventListener("click", () => box.remove());
-    box.appendChild(document.createElement("br"));
-    box.appendChild(closeBtn);
-
-    document.body.appendChild(box);
-
-    translateBtn.addEventListener("click", async () => {
+    modal.querySelector("#doTranslate").addEventListener("click", async () => {
       const targetLang = select.value;
+      const output = modal.querySelector("#translateOutput");
       output.innerText = "Translating...";
       try {
         const res = await fetch("http://localhost:5000/translate", {
@@ -672,50 +754,55 @@ popup.style.transform = "none";
             ? trailingSpacesMatch[0]
             : "";
 
-          const coreText = selectedText.slice(
-            leadingSpaces.length,
-            selectedText.length - trailingSpaces.length
-          );
-
           const span = document.createElement("span");
-          span.textContent = translated;
+          span.dataset.translated = "true";
           span.style.backgroundColor = "rgba(255,255,0,0.2)";
           span.style.transition = "background-color 0.3s";
           span.style.cursor = "help";
+          span.style.borderRadius = "3px";
+          span.style.display = "inline";
+          span.style.whiteSpace = "pre-wrap";
+
+          span.innerHTML = translated;
+
           const tooltip = document.createElement("div");
+          tooltip.id = "translationTooltip";
           Object.assign(tooltip.style, {
             position: "absolute",
             visibility: "hidden",
-            padding: "8px",
-            width: "500px",
+            opacity: "0",
             borderRadius: "4px",
-            boxShadow: "0 2px 5px rgba(0,0,0,0.4)",
+            border: "2px solid black",
             zIndex: "10000000",
+            transition: "opacity 0.2s ease",
+            width: "max-content",
+            maxWidth: "500px",
           });
           tooltip.innerHTML = `
-          <div style="background: black; color: white; padding: 4px 8px; font-weight: bold; border-radius: 4px 4px 0 0;">
+            <div style="background: #333; color: white; padding: 4px 8px; font-weight: bold; text-align: left;">
               Original Text
-          </div>
-          <div style="background: white; color: black; padding: 8px; border-radius: 0 0 4px 4px;">
+            </div>
+            <div style="background: white; color: black; padding: 8px; border-radius: 0 0 4px 4px; text-align: left;">
               ${selectedText}
-          </div>
-      `;
-
+            </div>
+          `;
           document.body.appendChild(tooltip);
 
-          span.addEventListener("mouseenter", (e) => {
-            span.style.backgroundColor = "rgba(255,255,0,0.4)";
+          span.addEventListener("mouseenter", () => {
+            span.style.backgroundColor = "rgba(255,255,0)";
+            tooltip.style.visibility = "visible";
+            tooltip.style.opacity = "1";
+          });
 
-            Object.assign(tooltip.style, {
-              visibility: "visible",
-              left: `${e.pageX + 10}px`,
-              top: `${e.pageY + 10}px`,
-            });
+          span.addEventListener("mousemove", (e) => {
+            tooltip.style.left = `${e.pageX + 10}px`;
+            tooltip.style.top = `${e.pageY + 10}px`;
           });
 
           span.addEventListener("mouseleave", () => {
             span.style.backgroundColor = "rgba(255,255,0,0.2)";
-            tooltip.style.visibility = "hidden";
+            tooltip.style.opacity = "0";
+            setTimeout(() => (tooltip.style.visibility = "hidden"), 200);
           });
 
           const fragment = document.createDocumentFragment();
@@ -729,14 +816,15 @@ popup.style.transform = "none";
           range.insertNode(fragment);
         }
 
-        box.remove();
+        modal.remove();
       } catch (err) {
         console.error("Translation error:", err);
-        output.innerText = "Error fetching translation.";
+        modal.querySelector("#translateOutput").innerText =
+          "Error fetching translation.";
       }
     });
   });
-
+  
   popup.querySelector("#viewHistoryBtn").addEventListener("click", (e) => {
     e.stopPropagation();
     e.preventDefault();
