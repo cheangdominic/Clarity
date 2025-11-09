@@ -1,12 +1,11 @@
 let popupTimeout;
 let documentClickListener = null;
 let lastClipboardText = "";
-let hoverHideTimeout = null; // for hover-based menu hide
-let menuHovering = false; // track mouse over mini-menu
-let currentTagMenuAnchorId = null; // currently open menu's anchor id
-let menuJustOpenedUntil = 0; // grace period timestamp to avoid flicker
+let hoverHideTimeout = null;
+let menuHovering = false;
+let currentTagMenuAnchorId = null;
+let menuJustOpenedUntil = 0;
 
-// Global polished UI styles injected once
 function injectClarityStyles() {
   if (document.getElementById("clarity-styles")) return;
   const st = document.createElement("style");
@@ -174,27 +173,17 @@ function makeModalDraggable(modal) {
   document.addEventListener("mousemove", (e) => {
     if (!isDragging) return;
 
-    // --- New Boundary Logic ---
     let newX = e.clientX - offsetX;
     let newY = e.clientY - offsetY;
 
-    // Get the dimensions of the modal
     const modalRect = modal.getBoundingClientRect();
 
-    // Clamp X position (left edge at 0, right edge at window width - modal width)
     newX = Math.max(0, Math.min(newX, window.innerWidth - modalRect.width));
 
-    // Clamp Y position (top edge at 0, bottom edge at window height - modal height)
     newY = Math.max(0, Math.min(newY, window.innerHeight - modalRect.height));
 
-    // Apply clamped position
     modal.style.left = `${newX}px`;
     modal.style.top = `${newY}px`;
-    // --- End Boundary Logic ---
-
-    // modal.style.left = `${e.clientX - offsetX}px`;
-    // modal.style.top = `${e.clientY - offsetY}px`;
-    // modal.style.transform = "none";
   });
 
   document.addEventListener("mouseup", () => {
@@ -255,17 +244,16 @@ function createModal(id, title) {
   modal.querySelector(".collapse-btn").onclick = (e) => {
     const icon = modal.querySelector(".collapse-icon");
 
-    // Use a class toggle for CSS-based collapsing
     if (modal.classList.contains("collapsed")) {
       modal.classList.remove("collapsed");
-      content.style.maxHeight = "220px"; // Expand to full height
+      content.style.maxHeight = "220px";
       content.style.padding = "14px 16px";
-      icon.textContent = "−"; // Change icon to minus
+      icon.textContent = "−";
     } else {
       modal.classList.add("collapsed");
-      content.style.maxHeight = "0"; // Collapse
-      content.style.padding = "0 16px"; // Keep horizontal padding or set to '0 16px'
-      icon.textContent = "+"; // Change icon to plus
+      content.style.maxHeight = "0";
+      content.style.padding = "0 16px";
+      icon.textContent = "+";
     }
   };
   makeModalDraggable(modal);
@@ -318,7 +306,13 @@ function showHighlightPopup() {
     <button id="highlightBtn" style="background:none;border:none;color:white;cursor:pointer;font-weight:600;">💡 Highlight</button>
   `;
 
-  ["#summarizeBtn", "#notesBtn", "#translateBtn", "#viewHistoryBtn", "#highlightBtn"].forEach((sel) => {
+  [
+    "#summarizeBtn",
+    "#notesBtn",
+    "#translateBtn",
+    "#viewHistoryBtn",
+    "#highlightBtn",
+  ].forEach((sel) => {
     const el = popup.querySelector(sel);
     if (el) el.classList.add("clarity-link-btn");
   });
@@ -354,100 +348,6 @@ function showHighlightPopup() {
       content.innerHTML = `<p style="color:#a00;">Failed to fetch summary.</p>`;
     }
   };
-  //   // We create the modal div here, as the previous code was likely doing this inside createModal
-  //   const modal = document.createElement("div");
-  //   modal.id = `summaryModal-${Date.now()}`;
-
-  //   // Applying necessary styles directly (based on your createModal function)
-  //   Object.assign(modal.style, {
-  //     width: "340px",
-  //     maxWidth: "90%",
-  //     background: "#fff",
-  //     borderRadius: "10px",
-  //     boxShadow: "0 4px 20px rgba(0,0,0,0.25)",
-  //     zIndex: "10000001", // High z-index to ensure it is on top
-  //     overflow: "hidden",
-  //     display: "none",
-  //     fontFamily:
-  //       "system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif",
-  //     position: "fixed", // Use fixed for easier dragging
-  //     transition: "opacity 0.2s ease, transform 0.2s ease",
-  //   });
-
-  //   // 1. Insert the new collapsible HTML structure
-  //   const modalTitle = "Summary"; // Assuming the title is 'Summary'
-  //   modal.innerHTML = `
-  //       <div class="modal-header" style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;background:#333;color:#fff; cursor:move;">
-  //           <span class="modal-title" style="font-weight:600;">${modalTitle}</span>
-  //           <div>
-  //               <button class="collapse-btn" style="background:none;border:none;color:#fff;font-size:20px;cursor:pointer;padding:0 5px;line-height:1;" title="Collapse/Expand">
-  //                   <span class="collapse-icon">−</span>
-  //               </button>
-  //               <button class="close-btn" style="background:none;border:none;color:#fff;font-size:20px;cursor:pointer;padding:0;line-height:1;" title="Close">×</button>
-  //           </div>
-  //       </div>
-  //       <div class="modal-content" style="padding:14px 16px;max-height:220px;overflow:auto;font-size:14px;line-height:1.45;color:#333; transition:max-height 0.3s ease-out, padding 0.3s ease-out;">
-  //           </div>
-  //   `;
-
-  //   document.body.appendChild(modal);
-
-  //   const content = modal.querySelector(".modal-content");
-  //   // const highlightSpan = modal._highlight; // Uncomment if needed
-
-  //   // 2. Add Collapse Logic
-  //   modal.querySelector(".collapse-btn").onclick = (e) => {
-  //     const icon = modal.querySelector(".collapse-icon");
-
-  //     // Use a class toggle for CSS-based collapsing
-  //     if (modal.classList.contains("collapsed")) {
-  //       modal.classList.remove("collapsed");
-  //       content.style.maxHeight = "220px"; // Expand to full height
-  //       content.style.padding = "14px 16px";
-  //       icon.textContent = "−"; // Change icon to minus
-  //     } else {
-  //       modal.classList.add("collapsed");
-  //       content.style.maxHeight = "0"; // Collapse
-  //       content.style.padding = "0 16px"; // Keep horizontal padding or set to '0 16px'
-  //       icon.textContent = "+"; // Change icon to plus
-  //     }
-  //   };
-
-  //   // 3. Add Close Logic
-  //   modal.querySelector(".close-btn").onclick = () => {
-  //     modal.remove(); // Use .remove() for a clean exit
-  //     // Add logic here to re-show the original 'popup' if you want it back
-  //     // popup.style.display = 'block';
-  //   };
-
-  //   // 4. Initial Modal Setup and Positioning (Simplified for Draggability)
-  //   makeModalDraggable(modal); // Ensure your drag function is called here
-
-  //   showLoadingSpinner(content);
-  //   modal.style.display = "block";
-  //   const rect = popup.getBoundingClientRect();
-
-  //   // Simplified positioning for better dragging (position: fixed)
-  //   modal.style.top = `${rect.top - 12}px`;
-  //   modal.style.left = `${rect.left + rect.width / 2}px`;
-  //   modal.style.transform = "translateX(-50%)"; // Only horizontal center
-
-  //   modal.style.opacity = "0";
-  //   requestAnimationFrame(() => (modal.style.opacity = "1"));
-
-  //   // 5. Fetch Data
-  //   try {
-  //     const res = await fetch("http://localhost:5000/summarize", {
-  //       method: "POST",
-  //       headers: { "Content-Type": "application/json" },
-  //       body: JSON.stringify({ text: selectedText }),
-  //     });
-  //     const data = await res.json();
-  //     content.innerHTML = data.summary || "No summary available.";
-  //   } catch {
-  //     content.innerHTML = `<p style="color:#a00;">Failed to fetch summary.</p>`;
-  //   }
-  // };
 
   popup.querySelector("#notesBtn").onclick = async () => {
     const modal = createModal(`notesModal-${Date.now()}`, "Notes");
@@ -475,12 +375,16 @@ function showHighlightPopup() {
   };
 
   popup.querySelector("#translateBtn").addEventListener("click", async () => {
+    // SIMPLE TOGGLE - Check if modal exists FIRST
+    const existingBox = document.getElementById("centerBox");
+    if (existingBox) {
+      existingBox.remove();
+      return; // Exit early if we closed the modal
+    }
+
     const selection = window.getSelection();
     const selectedText = selection.toString().trim();
     if (!selectedText) return;
-
-    const oldBox = document.getElementById("centerBox");
-    if (oldBox) oldBox.remove();
 
     const box = document.createElement("div");
     box.id = "centerBox";
@@ -588,7 +492,6 @@ function showHighlightPopup() {
         const data = await res.json();
         const translated = data.translatedText || "Translation failed.";
 
-        // Replace the selected text with a hoverable span
         if (selection.rangeCount > 0) {
           const range = selection.getRangeAt(0);
           const selectedText = range.toString();
@@ -611,39 +514,32 @@ function showHighlightPopup() {
           span.style.backgroundColor = "rgba(255,255,0,0.2)";
           span.style.transition = "background-color 0.3s";
           span.style.cursor = "help";
-          // span.title = `Original: ${selectedText}`;
-          // --- Custom Tooltip Element ---
           const tooltip = document.createElement("div");
           Object.assign(tooltip.style, {
             position: "absolute",
-            visibility: "hidden", // Start hidden
+            visibility: "hidden",
             padding: "8px",
             width: "500px",
             borderRadius: "4px",
             boxShadow: "0 2px 5px rgba(0,0,0,0.4)",
             zIndex: "10000000",
           });
-
-          // --- Tooltip Content Structure ---
           tooltip.innerHTML = `
-        <div style="background: black; color: white; padding: 4px 8px; font-weight: bold; border-radius: 4px 4px 0 0;">
-            Original Text
-        </div>
-        <div style="background: white; color: black; padding: 8px; border-radius: 0 0 4px 4px;">
-            ${selectedText}
-        </div>
-    `;
+          <div style="background: black; color: white; padding: 4px 8px; font-weight: bold; border-radius: 4px 4px 0 0;">
+              Original Text
+          </div>
+          <div style="background: white; color: black; padding: 8px; border-radius: 0 0 4px 4px;">
+              ${selectedText}
+          </div>
+      `;
 
-          document.body.appendChild(tooltip); // Append to body to ensure it's on top
+          document.body.appendChild(tooltip);
 
-          // Optional: subtle hover animation
           span.addEventListener("mouseenter", (e) => {
             span.style.backgroundColor = "rgba(255,255,0,0.4)";
 
-            // Show and position the custom tooltip
             Object.assign(tooltip.style, {
               visibility: "visible",
-              // Position near the mouse/span, adjusted slightly for offset
               left: `${e.pageX + 10}px`,
               top: `${e.pageY + 10}px`,
             });
@@ -676,10 +572,28 @@ function showHighlightPopup() {
     e.stopPropagation();
     e.preventDefault();
 
+    const historyCard = document.getElementById("clipboardHistoryCard");
+
+    if (historyCard) {
+      historyCard.remove();
+      return;
+    }
+
     showClipboardHistory(popup);
   });
 
-  document.querySelector("#highlightBtn").addEventListener("click", () => {
+  popup.querySelector("#highlightBtn").addEventListener("click", (e) => {
+    e.stopPropagation();
+    e.preventDefault();
+
+    const colorPicker = document.getElementById("highlightColorPicker");
+
+    // If color picker is already open, close it
+    if (colorPicker) {
+      colorPicker.remove();
+      return;
+    }
+
     const selection = window.getSelection();
     if (!selection.rangeCount) return;
 
@@ -1123,7 +1037,6 @@ function showHighlightsPanel(popup) {
     }
 
     document.body.appendChild(panel);
-    // After mounting, ensure panel is fully in viewport; flip below if near top
     try {
       const pr = panel.getBoundingClientRect();
       const threshold = 8;
@@ -1131,7 +1044,6 @@ function showHighlightsPanel(popup) {
         panel.style.top = `${window.scrollY + popupRect.bottom + 10}px`;
         panel.style.transform = "translateX(-50%) translateY(0)";
       }
-      // Clamp horizontally if needed
       const vw = document.documentElement.clientWidth;
       const leftPx = Math.min(
         Math.max(window.scrollX + 12, window.scrollX + popupRect.left),
@@ -1168,8 +1080,11 @@ function showHighlightsPanel(popup) {
 function showTagActionsMenu(anchorEl) {
   try {
     const old = document.getElementById("tagActionsMenu");
-    // If a menu is already open for this same anchor, do nothing to prevent flicker
-    const anchorId = (anchorEl.dataset && anchorEl.dataset.clarityId) || (anchorEl.dataset ? (anchorEl.dataset.clarityId = generateHighlightId()) : generateHighlightId());
+    const anchorId =
+      (anchorEl.dataset && anchorEl.dataset.clarityId) ||
+      (anchorEl.dataset
+        ? (anchorEl.dataset.clarityId = generateHighlightId())
+        : generateHighlightId());
     if (old && old.dataset && old.dataset.anchorId === anchorId) return;
     if (old) old.remove();
   } catch (_) {}
@@ -1177,7 +1092,8 @@ function showTagActionsMenu(anchorEl) {
   const rect = anchorEl.getBoundingClientRect();
   const menu = document.createElement("div");
   menu.id = "tagActionsMenu";
-  menu.dataset.anchorId = (anchorEl.dataset && anchorEl.dataset.clarityId) || "";
+  menu.dataset.anchorId =
+    (anchorEl.dataset && anchorEl.dataset.clarityId) || "";
   menu.classList.add("clarity-surface", "clarity-menu");
   menu.style.position = "absolute";
   menu.style.top = `${window.scrollY + rect.top - 8}px`;
@@ -1282,7 +1198,6 @@ function showTagActionsMenu(anchorEl) {
   const createTagBtn = mkBtn("Add Tag");
   const openTagsBtn = mkBtn("View Tags");
 
-  // Inline tag editor UI (discrete, consistent)
   const editor = document.createElement("div");
   editor.style.display = "none";
   editor.style.alignItems = "center";
@@ -1319,19 +1234,33 @@ function showTagActionsMenu(anchorEl) {
     upsertHighlightRecordForElement(anchorEl, merged, uniqueTags);
     input.value = "";
     renderBadgesFromStorage();
-    // refresh current badges row
-    try { chrome.storage.local.get(["tagColors"], (res) => renderBadges(res.tagColors || {})); } catch (_) {}
+    try {
+      chrome.storage.local.get(["tagColors"], (res) =>
+        renderBadges(res.tagColors || {})
+      );
+    } catch (_) {}
   };
 
   const handleAdd = () => {
     const raw = input.value || "";
-    const tags = raw.split(",").map((t) => t.trim()).filter(Boolean);
+    const tags = raw
+      .split(",")
+      .map((t) => t.trim())
+      .filter(Boolean);
     if (!tags.length) return;
     commitTags(tags);
   };
 
-  addBtn.addEventListener("click", (e) => { e.stopPropagation(); handleAdd(); });
-  input.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); handleAdd(); }});
+  addBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    handleAdd();
+  });
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      handleAdd();
+    }
+  });
 
   const renderBadgesFromStorage = () => {
     try {
@@ -1352,14 +1281,17 @@ function showTagActionsMenu(anchorEl) {
             e.stopPropagation();
             const current = getHighlightTags(anchorEl);
             if (current.includes(k)) {
-              // remove tag
               const next = current.filter((t) => t !== k);
               setHighlightTags(anchorEl, next);
             } else {
               commitTags([k]);
             }
             renderBadgesFromStorage();
-            try { chrome.storage.local.get(["tagColors"], (r) => renderBadges(r.tagColors || {})); } catch (_) {}
+            try {
+              chrome.storage.local.get(["tagColors"], (r) =>
+                renderBadges(r.tagColors || {})
+              );
+            } catch (_) {}
           });
           suggestions.appendChild(chip);
         });
@@ -1370,7 +1302,6 @@ function showTagActionsMenu(anchorEl) {
   createTagBtn.addEventListener("click", (e) => {
     e.stopPropagation();
     editor.style.display = "flex";
-    // Hide the Add Tag button while editor is visible
     createTagBtn.style.display = "none";
     if (editor.style.display === "flex") {
       renderBadgesFromStorage();
@@ -1388,7 +1319,7 @@ function showTagActionsMenu(anchorEl) {
   menu.appendChild(openTagsBtn);
   document.body.appendChild(menu);
   currentTagMenuAnchorId = menu.dataset.anchorId || null;
-  menuJustOpenedUntil = Date.now() + 350; // grace period to avoid immediate hide
+  menuJustOpenedUntil = Date.now() + 350;
 
   const closer = (e) => {
     const panel = document.getElementById("highlightsPanel");
@@ -1435,7 +1366,7 @@ function samePageURL(a, b) {
     const u2 = new URL(b, location.href);
     const p1 = (u1.pathname || "/").replace(/\/+$/, "");
     const p2 = (u2.pathname || "/").replace(/\/+$/, "");
-    return u1.origin === u2.origin && p1 === p2; // ignore search/hash differences
+    return u1.origin === u2.origin && p1 === p2;
   } catch (_) {
     return a === b;
   }
@@ -1566,7 +1497,6 @@ function scheduleHoverMenuHide(anchorEl) {
   hoverHideTimeout = setTimeout(() => {
     const menu = document.getElementById("tagActionsMenu");
     if (!menu) return;
-    // Avoid hiding immediately after opening to prevent flicker
     if (Date.now() < menuJustOpenedUntil) return;
     if (menuHovering) return;
     const stillOnHighlight = anchorEl && anchorEl.matches(":hover");
@@ -1721,7 +1651,6 @@ function setHighlightTags(el, tags) {
   el.classList.add("clarity-highlight");
 }
 
-// Upsert a highlight record in storage for a given element and tag list.
 function upsertHighlightRecordForElement(el, finalTags, newlyAddedTags = []) {
   const id = (el.dataset && el.dataset.clarityId) || generateHighlightId();
   if (!el.dataset.clarityId) el.dataset.clarityId = id;
@@ -1736,23 +1665,30 @@ function upsertHighlightRecordForElement(el, finalTags, newlyAddedTags = []) {
     date: new Date().toISOString(),
   };
   chrome.storage.local.get(["highlights", "tagColors"], (result) => {
-    const list = Array.isArray(result.highlights) ? result.highlights.slice(0) : [];
+    const list = Array.isArray(result.highlights)
+      ? result.highlights.slice(0)
+      : [];
     const tagColors =
-      result.tagColors && typeof result.tagColors === "object" ? { ...result.tagColors } : {};
+      result.tagColors && typeof result.tagColors === "object"
+        ? { ...result.tagColors }
+        : {};
 
-    // Seed colors for newly added tags
     const base = record.color || "";
     (newlyAddedTags || []).forEach((t) => {
       if (t && !tagColors[t] && base) tagColors[t] = base;
     });
 
-    // Find existing by id, else by url+text
     let idx = -1;
     if (record.id) idx = list.findIndex((r) => r && r.id === record.id);
-    if (idx === -1) idx = list.findIndex((r) => r && r.url === record.url && (r.id ? false : (r.text || "") === record.text));
+    if (idx === -1)
+      idx = list.findIndex(
+        (r) =>
+          r &&
+          r.url === record.url &&
+          (r.id ? false : (r.text || "") === record.text)
+      );
 
     if (idx !== -1) {
-      // Update existing
       const existing = list[idx];
       existing.tags = record.tags;
       existing.tag = record.tag;
@@ -1766,7 +1702,6 @@ function upsertHighlightRecordForElement(el, finalTags, newlyAddedTags = []) {
       list.unshift(record);
     }
 
-    // Dedupe by id (first wins), then by url+text
     const seen = new Set();
     const deduped = [];
     for (const r of list) {
@@ -1809,10 +1744,10 @@ document.addEventListener("mouseover", (e) => {
   const el = e.target.closest && e.target.closest(".clarity-highlight");
   if (!el) return;
   if (el.contains(e.relatedTarget)) return;
-  // Prevent re-drawing the menu if it's already open for this anchor
   const open = document.getElementById("tagActionsMenu");
   const anchorId = el.dataset && el.dataset.clarityId;
-  if (open && open.dataset && anchorId && open.dataset.anchorId === anchorId) return;
+  if (open && open.dataset && anchorId && open.dataset.anchorId === anchorId)
+    return;
   showTagActionsMenu(el);
 });
 
@@ -1903,11 +1838,10 @@ document.addEventListener("mouseout", (e) => {
   }
 })();
 
-// More robust, retry-capable rehydration that runs when DOM is ready too
 function rehydrateNow() {
   try {
     chrome.storage?.local?.get(["highlights"], (res) => {
-      const list = (res && Array.isArray(res.highlights)) ? res.highlights : [];
+      const list = res && Array.isArray(res.highlights) ? res.highlights : [];
       if (!list.length) return;
       let dirty = false;
       list.forEach((rec) => {
@@ -1917,16 +1851,28 @@ function rehydrateNow() {
           if (!el) el = findAndCreateHighlightByText(rec.text, rec);
           if (el) {
             if (rec.tags || rec.tag) {
-              const want = Array.isArray(rec.tags) && rec.tags.length ? rec.tags : (rec.tag ? [rec.tag] : []);
+              const want =
+                Array.isArray(rec.tags) && rec.tags.length
+                  ? rec.tags
+                  : rec.tag
+                  ? [rec.tag]
+                  : [];
               const have = getHighlightTags(el);
               const need = want.filter((t) => !have.includes(t));
               if (need.length) setHighlightTags(el, have.concat(need));
             }
-            if (!rec.id && el.dataset && el.dataset.clarityId) { rec.id = el.dataset.clarityId; dirty = true; }
+            if (!rec.id && el.dataset && el.dataset.clarityId) {
+              rec.id = el.dataset.clarityId;
+              dirty = true;
+            }
           }
         } catch (_) {}
       });
-      if (dirty) { try { chrome.storage.local.set({ highlights: list }); } catch (_) {} }
+      if (dirty) {
+        try {
+          chrome.storage.local.set({ highlights: list });
+        } catch (_) {}
+      }
     });
   } catch (_) {}
 }
@@ -1938,22 +1884,39 @@ function checkPendingOpenNow() {
       if (!pending) return;
       if (!samePageURL(pending.url, location.href)) return;
       const ts = pending.ts || 0;
-      if (Date.now() - ts > 60000) { try { chrome.storage.local.remove("clarityPendingOpen"); } catch (_) {} return; }
+      if (Date.now() - ts > 60000) {
+        try {
+          chrome.storage.local.remove("clarityPendingOpen");
+        } catch (_) {}
+        return;
+      }
       let el = findHighlightByRecord(pending);
       if (!el) el = findAndCreateHighlightByText(pending.text, pending);
       if (el) {
-        try { el.scrollIntoView({ behavior: "smooth", block: "center", inline: "nearest" }); } catch (_) { el.scrollIntoView(); }
+        try {
+          el.scrollIntoView({
+            behavior: "smooth",
+            block: "center",
+            inline: "nearest",
+          });
+        } catch (_) {
+          el.scrollIntoView();
+        }
         flashHighlight(el);
         showTagActionsMenu(el);
       }
-      try { chrome.storage.local.remove("clarityPendingOpen"); } catch (_) {}
+      try {
+        chrome.storage.local.remove("clarityPendingOpen");
+      } catch (_) {}
     });
   } catch (_) {}
 }
 
-// Run rehydration when DOM is ready and retry a few times for late content
 function scheduleRehydrate() {
-  const run = () => { rehydrateNow(); checkPendingOpenNow(); };
+  const run = () => {
+    rehydrateNow();
+    checkPendingOpenNow();
+  };
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", () => {
       [0, 300, 1200].forEach((d) => setTimeout(run, d));
