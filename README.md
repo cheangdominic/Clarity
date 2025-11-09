@@ -1,6 +1,6 @@
 <p align="center">
   <a href="#">
-    <img src="images/ClarityHighlightLogoText.png" width="200" alt="Clarity Logo">
+    <img src="images/ClarityHighlightLogoTextInverted.png" width="200" alt="Clarity Logo">
   </a>
 </p>
 
@@ -16,7 +16,7 @@ Clarity
 [![Node.js](https://img.shields.io/badge/Node.js-18+-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Status](https://img.shields.io/badge/Status-Active-brightgreen.svg)](#)
-[![GitHub Stars](https://img.shields.io/github/stars/TheNutcases/Clarity?style=social)](https://github.com/cheangdominic/Clarity)
+[![GitHub Stars](https://img.shields.io/github/stars/cheangdominic/Clarity?style=social)](https://github.com/cheangdominic/Clarity)
 
 </div>
 
