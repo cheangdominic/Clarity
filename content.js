@@ -1,7 +1,6 @@
 let popupTimeout;
 let documentClickListener = null;
 let lastClipboardText = "";
-// let lastCreatedHighlight = null;
 let hoverHideTimeout = null; // for hover-based menu hide
 let menuHovering = false; // track mouse over mini-menu
 
@@ -440,6 +439,7 @@ function showHighlightPopup() {
   popup.querySelector("#viewHistoryBtn").addEventListener("click", (e) => {
     e.stopPropagation();
     e.preventDefault();
+
     showClipboardHistory(popup);
   });
 
@@ -452,9 +452,14 @@ function showHighlightPopup() {
 
     const range = selection.getRangeAt(0).cloneRange();
     const rectSel = range.getBoundingClientRect();
-    const rectPopup = popup.getBoundingClientRect();
+    const popupRect = popup.getBoundingClientRect();
+    const historyCard = document.getElementById("clipboardHistoryCard");
 
-    showHighlightColorPicker(rectSel, rectPopup, (styleSpec) => {
+    if (historyCard) {
+      historyCard.remove();
+    }
+
+    showHighlightColorPicker(rectSel, popupRect, (styleSpec) => {
       try {
         const extracted = range.extractContents();
         const highlight = document.createElement("span");
@@ -464,20 +469,15 @@ function showHighlightPopup() {
         highlight.style.borderRadius = "2px";
         highlight.style.padding = "0 2px";
         highlight.className = "clarity-highlight";
-        // assign a stable id for later lookups from the Tags panel
-        if (!highlight.dataset.clarityId) {
-          highlight.dataset.clarityId = generateHighlightId();
-        }
         highlight.appendChild(extracted);
         range.insertNode(highlight);
         selection.removeAllRanges();
-        // lastCreatedHighlight = highlight;
+        lastCreatedHighlight = highlight;
 
         try {
           popup.remove();
         } catch (_) {}
 
-        const historyCard = document.getElementById("clipboardHistoryCard");
         if (historyCard) {
           historyCard.remove();
         }
@@ -518,6 +518,12 @@ function showHighlightPopup() {
 function showClipboardHistory(popup) {
   const oldCard = document.getElementById("clipboardHistoryCard");
   if (oldCard) oldCard.remove();
+
+  const highlightsPanels = document.querySelectorAll("#highlightsPanel");
+  highlightsPanels.forEach((panel) => {
+    panel.remove();
+  });
+
   chrome.storage.local.get(["clipboard"], (result) => {
     const history = result.clipboard || [];
     const card = document.createElement("div");
@@ -651,6 +657,11 @@ function tagToColor(tag) {
 function showHighlightsPanel(popup) {
   const existing = document.getElementById("highlightsPanel");
   if (existing) existing.remove();
+
+  const historyCard = document.getElementById("clipboardHistoryCard");
+  if (historyCard) {
+    historyCard.remove();
+  }
 
   chrome.storage.local.get(["highlights", "tagColors"], (result) => {
     const highlights = Array.isArray(result.highlights)
@@ -812,7 +823,6 @@ function showHighlightsPanel(popup) {
                 flashHighlight(el);
                 showTagActionsMenu(el);
               } else {
-                // Try to recreate from text on same page
                 const recreated = findAndCreateHighlightByText(item.text, item);
                 if (recreated) {
                   try {
@@ -883,7 +893,16 @@ function showHighlightsPanel(popup) {
         if (confirm("Clear all tagged highlights?")) {
           chrome.storage.local.set({ highlights: [] }, () => {
             panel.remove();
-            popup.remove();
+
+            const historyCard = document.getElementById("clipboardHistoryCard");
+            if (historyCard) {
+              historyCard.remove();
+            }
+
+            const popup = document.getElementById("highlightPopup");
+            if (popup) {
+              popup.remove();
+            }
           });
         }
       });
@@ -967,7 +986,6 @@ function showTagActionsMenu(anchorEl) {
       }
     });
   } catch (_) {
-    // If extension context is invalid, fall back to neutral badges
     renderBadges({});
   }
 
@@ -1056,27 +1074,6 @@ function showTagActionsMenu(anchorEl) {
     scheduleHoverMenuHide(anchorEl);
   });
 }
-
-// function getHighlightFromSelection() {
-//   const sel = window.getSelection();
-//   if (!sel || !sel.rangeCount) return null;
-//   const node = sel.getRangeAt(0).startContainer;
-//   return findAncestorHighlight(node);
-// }
-
-// function findAncestorHighlight(node) {
-//   let el = node && node.nodeType === 1 ? node : node && node.parentElement;
-//   while (el) {
-//     if (el.classList && el.classList.contains("clarity-highlight")) return el;
-//     el = el.parentElement;
-//   }
-//   return null;
-// }
-
-// function getLastHighlightInDocument() {
-//   const nodes = document.querySelectorAll(".clarity-highlight");
-//   return nodes.length ? nodes[nodes.length - 1] : null;
-// }
 
 function generateHighlightId() {
   return `cl-${Date.now().toString(36)}-${Math.random()
@@ -1168,7 +1165,6 @@ function showHighlightColorPicker(selectionRect, popupRect, onPick, onCancel) {
   picker.id = id;
   Object.assign(picker.style, {
     position: "absolute",
-    // initial placement: above the popup menu so we never overlap it
     top: `${window.scrollY + popupRect.top - 8}px`,
     left: `${window.scrollX + selectionRect.left + selectionRect.width / 2}px`,
     transform: "translateX(-50%) translateY(-100%)",
@@ -1241,6 +1237,7 @@ function showHighlightColorPicker(selectionRect, popupRect, onPick, onCancel) {
     try {
       picker.remove();
     } catch (_) {}
+
     onPick({ background: rgba, boxShadow: `inset 0 0 0 1px ${border}` });
   });
   customWrap.appendChild(input);
@@ -1248,7 +1245,6 @@ function showHighlightColorPicker(selectionRect, popupRect, onPick, onCancel) {
 
   document.body.appendChild(picker);
 
-  // Flip below the selected text if there isn't space above
   try {
     const pr = picker.getBoundingClientRect();
     if (pr.top < 8) {
