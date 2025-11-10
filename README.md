@@ -14,7 +14,6 @@ Clarity
 
 [![Chrome Extension](https://img.shields.io/badge/Chrome%20Extension-MV3-4285F4?logo=google-chrome&logoColor=white)](https://developer.chrome.com/docs/extensions/mv3/)
 [![Node.js](https://img.shields.io/badge/Node.js-18+-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Status](https://img.shields.io/badge/Status-Active-brightgreen.svg)](#)
 [![GitHub Stars](https://img.shields.io/github/stars/cheangdominic/Clarity?style=social)](https://github.com/cheangdominic/Clarity)
 
