@@ -293,19 +293,23 @@ function positionModalNearPopup(modal, popup) {
     const viewportWidth = window.innerWidth;
     const viewportHeight = window.innerHeight;
 
-    let top = popupRect.top - margin - modalRect.height;
-    if (top < margin) top = popupRect.bottom + margin;
+    const popupTop = popupRect.top + window.scrollY;
+    const popupBottom = popupRect.bottom + window.scrollY;
+    const popupLeft = popupRect.left + window.scrollX;
 
-    top = Math.max(
-      margin,
-      Math.min(top, viewportHeight - modalRect.height - margin)
-    );
+    let top = popupTop - margin - modalRect.height;
+    if (top < window.scrollY + margin) {
+      top = popupBottom + margin;
+    }
 
-    let left = popupRect.left + popupRect.width / 2 - modalRect.width / 2;
-    left = Math.max(
-      margin,
-      Math.min(left, viewportWidth - modalRect.width - margin)
-    );
+    const minTop = window.scrollY + margin;
+    const maxTop = window.scrollY + viewportHeight - modalRect.height - margin;
+    top = Math.max(minTop, Math.min(top, maxTop));
+
+    let left = popupLeft + popupRect.width / 2 - modalRect.width / 2;
+    const minLeft = window.scrollX + margin;
+    const maxLeft = window.scrollX + viewportWidth - modalRect.width - margin;
+    left = Math.max(minLeft, Math.min(left, maxLeft));
 
     modal.style.top = `${Math.round(top)}px`;
     modal.style.left = `${Math.round(left)}px`;
@@ -331,20 +335,26 @@ function createModal(id, title) {
     transition: "opacity 0.3s ease, transform 0.3s ease",
     opacity: "0",
     transform: "scale(0.95) translateY(-10px)",
+    resize: "both",
+    overflow: "hidden",
+    minWidth: "250px",
+    minHeight: "150px",
+    maxWidth: "90vw",
+    maxHeight: "80vh",
+    paddingBottom: "8px",
+    boxSizing: "border-box",
   });
 
-  modal.innerHTML = `
-   <div class="modal-header" style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;background:#333;color:#fff;">
-     <span style="font-weight:600;">${title}</span>
-     <div class="modal-controls" style="display:flex;align-items:center;gap: 1rem;">
+  modal.innerHTML = `<div class="modal-header" style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;background:#333;color:#fff;cursor:move;">
+    <span style="font-weight:600;">${title}</span>
+    <div class="modal-controls" style="display:flex;align-items:center;gap:1rem;">
       <button class="collapse-btn" style="background:none;border:none;color:#fff;font-size:20px;cursor:pointer;padding:0 5px;line-height:1;" title="Collapse/Expand">
         <span class="collapse-icon">−</span>
       </button>
       <button class="close-btn" style="background:none;border:none;color:#fff;font-size:20px;cursor:pointer;padding:0;line-height:1;">×</button>
-      </div>
     </div>
-    <div class="modal-content" style="padding:14px 16px;max-height:220px;overflow:auto;font-size:14px;line-height:1.45;color:#333;"></div>
-  `;
+  </div>
+  <div class="modal-content" style="padding:14px 16px;max-height:220px;overflow:auto;font-size:14px;line-height:1.45;color:#333;"></div>`;
 
   document.body.appendChild(modal);
 
