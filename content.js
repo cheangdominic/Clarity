@@ -338,6 +338,7 @@ function createModal(id, title) {
     resize: "both",
     overflow: "hidden",
     minWidth: "250px",
+    minHeight: "150px",
     maxWidth: "90vw",
     maxHeight: "80vh",
     paddingBottom: "8px",
