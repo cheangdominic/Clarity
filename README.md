@@ -5,7 +5,7 @@
 </p>
 
 <h1 align="center">
-Clarity
+Clarity (🥉3rd Place Winner @ HTTPHacks)
 </h1>
 
 <h2 align="center">Active Learning Assistant for Smarter Reading</h2>
@@ -20,8 +20,6 @@ Clarity
 </div>
 
 :star: _Love Clarity? Star us on GitHub to support development and help others discover it!_
-
-<br />
 
 ---
 
