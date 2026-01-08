@@ -5,7 +5,7 @@
 </p>
 
 <h1 align="center">
-Clarity (🥉3rd Place Winner @ HTTPHacks)
+Clarity
 </h1>
 
 <h2 align="center">Active Learning Assistant for Smarter Reading</h2>
@@ -18,6 +18,8 @@ Clarity (🥉3rd Place Winner @ HTTPHacks)
 [![GitHub Stars](https://img.shields.io/github/stars/cheangdominic/Clarity?style=social)](https://github.com/cheangdominic/Clarity)
 
 </div>
+
+🥉 3rd Place Winners @ HTTPHacks 2025
 
 :star: _Love Clarity? Star us on GitHub to support development and help others discover it!_
 
