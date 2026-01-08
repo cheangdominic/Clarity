@@ -19,7 +19,7 @@ Clarity
 
 </div>
 
-🥉 3rd Place Winners @ HTTPHacks 2025
+🥉 <b>3rd</b> Place Winners @ <b><i>HTTPHacks 2025</i></b>
 
 :star: _Love Clarity? Star us on GitHub to support development and help others discover it!_
 
